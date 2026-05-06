@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kayson Fakhar</title>
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+  html, body { margin:0; padding:0; height:100%; background: var(--color-paper); overflow:hidden; }
+  body { font-family: var(--font-text); color: var(--fg1); }
+  #app { position:fixed; inset:0; }
+  *, *::before, *::after { box-sizing: border-box; }
+
+  /* ── Nav ─────────────────────────────────────────── */
+  .kf-nav {
+    position: fixed; top: 0; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 22px 32px 18px;
+    z-index: 50;
+    pointer-events: none;
+    mix-blend-mode: difference;
+  }
+  .kf-nav > * { pointer-events: auto; }
+  /* Frosted background when a content panel is open */
+  .kf-nav.solid {
+    mix-blend-mode: normal;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+  }
+  .kf-nav.solid .kf-wordmark { color: var(--fg1, #111); }
+  .kf-nav.solid .kf-tagline { color: rgba(0,0,0,0.5); }
+  .kf-nav.solid .kf-navlinks a { color: var(--fg1, #111); }
+  body[data-mode="cream"] .kf-nav.solid { background: rgba(250,249,245,0.94); }
+  body[data-mode="dark"] .kf-nav.solid {
+    background: rgba(10,10,10,0.92); border-bottom-color: rgba(244,244,240,0.1);
+  }
+  body[data-mode="dark"] .kf-nav.solid .kf-wordmark { color: #f4f4f0; }
+  body[data-mode="dark"] .kf-nav.solid .kf-tagline { color: rgba(244,244,240,0.5); }
+  body[data-mode="dark"] .kf-nav.solid .kf-navlinks a { color: #f4f4f0; }
+  .kf-wordmark {
+    display: inline-flex; flex-direction: column; align-items: flex-start; line-height: 1.05;
+    font-family: var(--font-display); font-size: 18px;
+    color: #fff;
+    text-decoration: none; cursor: pointer; letter-spacing: 0.02em;
+  }
+  .kf-wordmark .dot { color: #F53A61; }
+  .kf-tagline {
+    margin-top: 4px;
+    font-family: var(--font-text); font-weight: 400; font-style: italic;
+    font-size: 11px; letter-spacing: 0.04em; color: rgba(255,255,255,0.78);
+    text-transform: lowercase;
+    /* no own mix-blend-mode — parent nav's difference handles inversion */
+  }
+  .kf-navlinks { display: flex; gap: 22px; list-style: none; margin: 0; padding: 0; }
+  .kf-navlinks a {
+    font-family: var(--font-text); font-size: 14px;
+    color: #fff; text-decoration: none; cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: color 120ms linear;
+    border-bottom: 1px solid transparent;
+    padding-bottom: 2px;
+  }
+  .kf-navlinks a:hover { color: #F53A61; }
+  .kf-navlinks a.active { color: #F53A61; border-bottom-color: #F53A61; }
+
+  /* ── Graph stage ─────────────────────────────────── */
+  .kf-stage {
+    position: fixed;
+    inset: 0;
+    background: var(--color-paper);
+    overflow: hidden;
+    transition: right 700ms cubic-bezier(.4,0,.2,1), opacity 700ms ease, filter 700ms ease;
+    will-change: right, opacity, filter;
+  }
+  .kf-stage.aside {
+    opacity: 0.85;
+    filter: saturate(0.9);
+  }
+  .kf-stage.aside.splitting { transition: none; }
+
+  /* ── Split divider ───────────────────────────────── */
+  .kf-split-divider {
+    position: fixed; top: 0; bottom: 0; width: 10px;
+    z-index: 36; cursor: col-resize;
+    transform: translateX(-50%);
+    transition: left 700ms cubic-bezier(.4,0,.2,1);
+  }
+  .kf-split-divider.splitting { transition: none; }
+  .kf-split-divider::after {
+    content: ''; position: absolute;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 3px; height: 48px;
+    background: rgba(0,0,0,0.18); border-radius: 2px;
+    transition: background 120ms, height 120ms;
+  }
+  .kf-split-divider:hover::after,
+  .kf-split-divider.dragging::after { background: #F53A61; height: 64px; }
+  body[data-mode="dark"] .kf-split-divider::after { background: rgba(244,244,240,0.22); }
+  body[data-mode="dark"] .kf-split-divider:hover::after,
+  body[data-mode="dark"] .kf-split-divider.dragging::after { background: #F53A61; }
+
+  /* ── Grain overlay ───────────────────────────────── */
+  .kf-grain {
+    position: fixed; inset: 0; pointer-events: none; z-index: 30;
+    mix-blend-mode: multiply;
+  }
+
+  /* ── Footer ──────────────────────────────────────── */
+  .kf-footer {
+    position: fixed; bottom: 22px; left: 32px; right: 32px;
+    z-index: 40; pointer-events: none;
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: var(--font-mono); font-size: 12px;
+    color: rgba(0,0,0,0.55);
+    mix-blend-mode: difference;
+    letter-spacing: 0.04em;
+  }
+  .kf-footer span { color: #fff; }
+
+  /* ── Hint ────────────────────────────────────────── */
+  .kf-hint {
+    position: fixed; left: 32px; top: 50%; transform: translateY(-50%);
+    font-family: var(--font-text); font-size: 13px;
+    max-width: 18ch;
+    z-index: 40; pointer-events: none;
+    mix-blend-mode: difference; color: rgba(255,255,255,0.55);
+    letter-spacing: 0.02em;
+    transition: opacity 300ms ease;
+  }
+  .kf-hint.dim { opacity: 0; }
+
+  /* ── Detail panel ────────────────────────────────── */
+  .kf-detail {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    /* left is set via inline style from split state */
+    z-index: 35;
+    background: var(--color-paper);
+    border-left: 1px solid rgba(0,0,0,0.2);
+    overflow-y: auto;
+    animation: kfSlide 540ms cubic-bezier(.2,.7,.2,1) both;
+    transition: left 700ms cubic-bezier(.4,0,.2,1);
+  }
+  .kf-detail.splitting { transition: none; animation: none; }
+  @keyframes kfSlide {
+    from { transform: translateX(40px); opacity: 0; }
+    to   { transform: none;              opacity: 1; }
+  }
+
+  /* ── Explorer panel ──────────────────────────────── */
+  .kf-explorer {
+    position: fixed; z-index: 45;
+    display: flex; flex-direction: column; gap: 14px;
+    width: 240px;
+    padding: 14px 18px 16px;
+    background: rgba(255,255,255,0.78);
+    backdrop-filter: blur(2px);
+    border: 1px solid rgba(0,0,0,0.85);
+    font-family: var(--font-text);
+    transition: opacity 320ms ease;
+  }
+  .kf-explorer.aside { opacity: 0; pointer-events: none; }
+  .kf-explorer.collapsed { gap: 0; }
+  .kf-explorer.collapsed .kf-explorer-body { display: none; }
+  .kf-explorer-head {
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: move; user-select: none;
+  }
+  .kf-explorer-head h4 {
+    margin: 0;
+    font-family: var(--font-text); font-size: 11px; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: rgba(0,0,0,0.55);
+  }
+  .kf-explorer-head button {
+    background: transparent; border: 0; cursor: pointer;
+    width: 20px; height: 20px; padding: 0;
+    font-family: var(--font-mono); font-size: 14px; line-height: 1;
+    color: rgba(0,0,0,0.55);
+  }
+  .kf-explorer-head button:hover { color: #F53A61; }
+  .kf-explorer-body { display: flex; flex-direction: column; gap: 14px; }
+  body[data-mode="dark"] .kf-explorer { background: rgba(15,15,15,0.78); border-color: rgba(244,244,240,0.85); color: #f4f4f0; }
+  body[data-mode="dark"] .kf-explorer-head h4,
+  body[data-mode="dark"] .kf-explorer-head button { color: rgba(244,244,240,0.55); }
+  body[data-mode="cream"] .kf-explorer { background: rgba(250,249,245,0.82); }
+  .kf-explorer label {
+    display: flex; flex-direction: column; gap: 4px;
+    font-size: 12px; letter-spacing: 0.02em;
+  }
+  .kf-explorer label .row {
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .kf-explorer label .val {
+    font-family: var(--font-mono); font-size: 11px; color: rgba(0,0,0,0.5);
+  }
+  body[data-mode="dark"] .kf-explorer label .val { color: rgba(244,244,240,0.5); }
+  .kf-explorer input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 2px; background: rgba(0,0,0,0.85);
+    outline: none; margin: 0;
+  }
+  body[data-mode="dark"] .kf-explorer input[type="range"] { background: rgba(244,244,240,0.85); }
+  .kf-explorer input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 12px; height: 12px; background: #F53A61; border: 0; cursor: pointer;
+    border-radius: 0;
+  }
+  .kf-explorer input[type="range"]::-moz-range-thumb {
+    width: 12px; height: 12px; background: #F53A61; border: 0; cursor: pointer;
+    border-radius: 0;
+  }
+  .kf-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .kf-seg button {
+    font-family: var(--font-text); font-size: 11px;
+    background: transparent; color: inherit;
+    border: 1px solid rgba(0,0,0,0.6);
+    padding: 5px 6px; cursor: pointer; border-radius: 0;
+    letter-spacing: 0.02em; text-transform: lowercase;
+  }
+  body[data-mode="dark"] .kf-seg button { border-color: rgba(244,244,240,0.6); }
+  .kf-seg button.active { background: #F53A61; color: #fff; border-color: #F53A61; }
+  .kf-toggle { display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; }
+  .kf-toggle input { accent-color: #F53A61; }
+
+  /* ── Route animation ─────────────────────────────── */
+  .kf-route { animation: kfFade 320ms ease-out both; }
+  @keyframes kfFade { from {opacity:0;} to {opacity:1;} }
+
+  /* ── Page typography ─────────────────────────────── */
+  .kf-page-kicker {
+    font-family: var(--font-text); font-size: 13px;
+    color: rgba(0,0,0,0.55);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin: 0 0 14px;
+  }
+  .kf-page-title {
+    font-family: var(--font-display); font-size: 44px; font-weight: 400;
+    line-height: 1.05; color: inherit; margin: 0 0 28px;
+    letter-spacing: -0.01em; text-wrap: pretty;
+  }
+
+  /* ── Prose (rendered markdown) ───────────────────── */
+  .kf-prose {
+    font-family: var(--font-text); font-size: 18px; line-height: 1.6;
+    color: inherit; margin-bottom: 36px;
+  }
+  .kf-prose > *:first-child { margin-top: 0; }
+  .kf-prose p { margin: 0 0 1.2em; opacity: 0.85; }
+  .kf-prose h2 {
+    font-family: var(--font-display); font-size: 28px; font-weight: 400;
+    margin: 2em 0 0.6em; line-height: 1.1;
+  }
+  .kf-prose h3 {
+    font-family: var(--font-display); font-size: 22px; font-weight: 400;
+    margin: 1.6em 0 0.5em;
+  }
+  .kf-prose h4, .kf-prose h5, .kf-prose h6 {
+    font-family: var(--font-text); font-weight: 700;
+    margin: 1.4em 0 0.4em;
+  }
+  .kf-prose a { color: #F53A61; text-decoration: none; border-bottom: 1px solid currentColor; }
+  .kf-prose a:hover { color: #004992; }
+  .kf-prose strong { font-weight: 700; }
+  .kf-prose em { font-style: italic; }
+  .kf-prose ul, .kf-prose ol { margin: 0 0 1.2em; padding-left: 1.5em; opacity: 0.85; }
+  .kf-prose li { margin: 0.4em 0; }
+  .kf-prose code {
+    font-family: var(--font-mono); font-size: 0.88em;
+    background: rgba(0,0,0,0.07); padding: 0.15em 0.4em; border-radius: 2px;
+  }
+  .kf-prose pre {
+    background: rgba(0,0,0,0.06); padding: 1.1em 1.2em;
+    overflow-x: auto; margin: 0 0 1.4em; border-radius: 2px;
+  }
+  .kf-prose pre code { background: none; padding: 0; font-size: 0.9em; }
+  .kf-prose blockquote {
+    border-left: 3px solid #F53A61;
+    margin: 0 0 1.2em; padding: 0.1em 1em;
+    opacity: 0.8;
+  }
+  .kf-prose hr { border: 0; border-top: 1px solid var(--color-hairline); margin: 2.4em 0; }
+  .kf-prose img { max-width: 100%; height: auto; display: block; margin: 1.5em 0; }
+  .kf-prose table { width: 100%; border-collapse: collapse; margin: 0 0 1.2em; font-size: 16px; }
+  .kf-prose th, .kf-prose td { padding: 8px 12px; border: 1px solid var(--color-hairline); text-align: left; }
+  .kf-prose th { font-weight: 700; background: rgba(0,0,0,0.04); }
+
+  /* ── Dark mode overrides ─────────────────────────── */
+  body[data-mode="dark"] .kf-page-kicker { color: rgba(244,244,240,0.55); }
+  body[data-mode="dark"] .kf-prose code { background: rgba(255,255,255,0.1); }
+  body[data-mode="dark"] .kf-prose pre { background: rgba(255,255,255,0.07); }
+  body[data-mode="dark"] .kf-prose th { background: rgba(255,255,255,0.05); }
+
+  /* ── Mobile hamburger + nav overlay ─────────────── */
+  .kf-hamburger {
+    display: none;
+    background: transparent; border: 0; cursor: pointer;
+    color: #fff; font-size: 24px; line-height: 1; padding: 4px;
+  }
+  body[data-mode="dark"] .kf-hamburger { color: #f4f4f0; }
+  .kf-nav-overlay {
+    position: fixed; inset: 0;
+    z-index: 60;
+    background: var(--color-paper);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    animation: kfFade 180ms ease-out both;
+  }
+  body[data-mode="dark"] .kf-nav-overlay { background: #0a0a0a; }
+  body[data-mode="cream"] .kf-nav-overlay { background: var(--color-paper-cream); }
+  .kf-nav-overlay ul {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; align-items: center; gap: 28px;
+  }
+  .kf-nav-overlay ul a {
+    font-family: var(--font-display); font-size: 36px; font-weight: 400;
+    color: #000; text-decoration: none; cursor: pointer;
+    letter-spacing: 0.01em; display: block;
+  }
+  body[data-mode="dark"] .kf-nav-overlay ul a { color: #f4f4f0; }
+  .kf-nav-overlay ul a:hover,
+  .kf-nav-overlay ul a.active { color: #F53A61; }
+  .kf-nav-overlay-close {
+    position: absolute; top: 22px; right: 28px;
+    background: transparent; border: 0; cursor: pointer;
+    font-size: 22px; line-height: 1; padding: 8px;
+    color: rgba(0,0,0,0.55);
+  }
+  body[data-mode="dark"] .kf-nav-overlay-close { color: rgba(244,244,240,0.55); }
+  .kf-nav-overlay-close:hover { color: #F53A61; }
+
+  /* ── Floating manipulate button (mobile only) ────── */
+  .kf-fab-manipulate { display: none; }
+
+  /* ── Mobile ──────────────────────────────────────── */
+  @media (max-width: 640px) {
+    /* Nav: hide links row, show hamburger */
+    .kf-navlinks { display: none !important; }
+    .kf-hamburger { display: block; }
+
+    /* Footer + hint hidden on mobile — FAB replaces them */
+    .kf-footer { display: none; }
+    .kf-hint { display: none; }
+
+    /* FAB button */
+    .kf-fab-manipulate {
+      display: block;
+      position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+      z-index: 46;
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(0,0,0,0.85);
+      font-family: var(--font-text); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      padding: 9px 18px; cursor: pointer; color: inherit; white-space: nowrap;
+    }
+    body[data-mode="dark"] .kf-fab-manipulate {
+      background: rgba(15,15,15,0.88); border-color: rgba(244,244,240,0.85); color: #f4f4f0;
+    }
+    .kf-fab-manipulate.open { color: #F53A61; }
+
+    /* Explorer panel: hidden by default on mobile, shown when toggled */
+    .kf-explorer:not(.aside):not(.mobile-open) { opacity: 0; pointer-events: none; }
+    .kf-explorer:not(.aside).mobile-open {
+      left: 16px !important; right: 16px !important;
+      top: auto !important; bottom: 70px !important;
+      width: auto !important;
+    }
+
+    /* Pages */
+    .kf-split-divider { display: none !important; }
+    .kf-stage.aside { transform: scale(0.4) translate(-30%, -25%) !important; right: 0 !important; opacity: 0.4 !important; }
+    .kf-detail { left: 0 !important; width: 100vw; transition: none !important; animation: none !important; }
+    .kf-page-title { font-size: 32px; }
+    .kf-detail > div > div { padding: 100px 28px 48px !important; }
+  }
+
+  /* ── Color mode bodies ───────────────────────────── */
+  body[data-mode="cream"] { background: var(--color-paper-cream); }
+  body[data-mode="cream"] .kf-stage,
+  body[data-mode="cream"] .kf-detail { background: var(--color-paper-cream); }
+  body[data-mode="dark"] { background: #0a0a0a; }
+  body[data-mode="dark"] .kf-stage,
+  body[data-mode="dark"] .kf-detail { background: #0a0a0a; color: #f4f4f0; }
+  body[data-mode="dark"] .kf-detail { border-left-color: rgba(244,244,240,0.2); }
+  body[data-mode="dark"] .kf-footer { color: #fff; mix-blend-mode: normal; }
+  body[data-mode="dark"] .kf-footer span { color: #F53A61; }
+  body[data-mode="dark"] .kf-hint { color: rgba(255,255,255,0.5); mix-blend-mode: normal; }
+  body[data-mode="dark"] .kf-nav { mix-blend-mode: normal; }
+  body[data-mode="dark"] .kf-wordmark { color: #f4f4f0; }
+  body[data-mode="dark"] .kf-navlinks a { color: #f4f4f0; }
+  body[data-mode="dark"] .kf-navlinks a.active,
+  body[data-mode="dark"] .kf-navlinks a:hover { color: #F53A61; }
+  body[data-mode="dark"] .kf-grain { mix-blend-mode: screen; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<svg class="kf-grain" id="grain" width="100%" height="100%" preserveAspectRatio="none" aria-hidden="true">
+  <defs>
+    <filter id="kfNoise">
+      <feTurbulence type="fractalNoise" baseFrequency="1.7" numOctaves="2" seed="4" stitchTiles="stitch"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0
+                                            0 0 0 0 0
+                                            0 0 0 0 0
+                                            0 0 0 0.55 0"/>
+    </filter>
+  </defs>
+  <rect width="100%" height="100%" filter="url(#kfNoise)"/>
+</svg>
+
+<!-- React + Babel (production builds can replace these) -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- Markdown parser -->
+<script src="https://cdn.jsdelivr.net/npm/marked@13/marked.min.js"></script>
+
+<!-- Site modules -->
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="graph.jsx"></script>
+<script type="text/babel" src="pages.jsx"></script>
+
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "nodeCount": 13,
+  "density": 0.3,
+  "grain": 33,
+  "speed": 2.9,
+  "mode": "light",
+  "layout": "spring",
+  "blogAsNodes": false,
+  "zoom": 2.5230310518907113,
+  "curveStrength": 0
+}/*EDITMODE-END*/;
+
+const NAV_ITEMS = [
+  { id: "blog",     label: "blog" },
+  { id: "about",    label: "about" },
+  { id: "research", label: "research" },
+  { id: "cv",       label: "cv" },
+  { id: "monkey",   label: "anxious monkey" },
+  { id: "contact",  label: "contact" },
+];
+
+function Nav({ current, onNav, mobileNavOpen, onMobileNavToggle, solid }) {
+  return (
+    <>
+      <nav className={"kf-nav" + (solid ? " solid" : "")} data-screen-label="00 nav">
+        <a className="kf-wordmark" onClick={() => { onNav("home"); if (mobileNavOpen) onMobileNavToggle(false); }}>
+          <span>kayson <span className="dot">▦</span> fakhar</span>
+          <span className="kf-tagline">understanding complex networks through manipulation</span>
+        </a>
+        <ul className="kf-navlinks">
+          {NAV_ITEMS.map(it => (
+            <li key={it.id}>
+              <a onClick={() => onNav(it.id)} className={current === it.id ? "active" : ""}>{it.label}.</a>
+            </li>
+          ))}
+        </ul>
+        <button
+          className={"kf-hamburger" + (mobileNavOpen ? " open" : "")}
+          onClick={() => onMobileNavToggle(!mobileNavOpen)}
+          aria-label={mobileNavOpen ? "close menu" : "open menu"}
+        >{mobileNavOpen ? "✕" : "☰"}</button>
+      </nav>
+      {mobileNavOpen && (
+        <div className="kf-nav-overlay" onClick={() => onMobileNavToggle(false)}>
+          <button className="kf-nav-overlay-close" onClick={() => onMobileNavToggle(false)}>✕</button>
+          <ul onClick={e => e.stopPropagation()}>
+            {NAV_ITEMS.map(it => (
+              <li key={it.id}>
+                <a
+                  onClick={() => { onNav(it.id); onMobileNavToggle(false); }}
+                  className={current === it.id ? "active" : ""}
+                >{it.label}.</a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </>
+  );
+}
+
+const LAYOUTS = ["random", "spring"];
+const LAYOUT_LABEL = { "random": "random", "spring": "spring" };
+
+function Explorer({ t, setTweak, hidden, mobileVisible }) {
+  const [collapsed, setCollapsed] = React.useState(false);
+  const [pos, setPos] = React.useState(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem("kf-explorer-pos"));
+      if (v && typeof v.x === "number" && typeof v.y === "number") return v;
+    } catch {}
+    return { x: 32, y: window.innerHeight - 420 };
+  });
+  React.useEffect(() => {
+    localStorage.setItem("kf-explorer-pos", JSON.stringify(pos));
+  }, [pos]);
+  const onHeadDown = (e) => {
+    if (e.target.tagName === "BUTTON") return;
+    e.preventDefault();
+    const sx = e.clientX, sy = e.clientY;
+    const start = { ...pos };
+    const move = (ev) => {
+      const nx = Math.max(8, Math.min(window.innerWidth - 80, start.x + ev.clientX - sx));
+      const ny = Math.max(8, Math.min(window.innerHeight - 30, start.y + ev.clientY - sy));
+      setPos({ x: nx, y: ny });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+  return (
+    <div
+      className={"kf-explorer" + (hidden ? " aside" : "") + (collapsed ? " collapsed" : "") + (!hidden && mobileVisible ? " mobile-open" : "")}
+      style={{ left: pos.x, top: pos.y }}
+    >
+      <div className="kf-explorer-head" onPointerDown={onHeadDown}>
+        <h4>manipulate</h4>
+        <div style={{ display: "flex", gap: 2 }}>
+          <button title="recenter graph"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); window.__kfRecenter && window.__kfRecenter(); }}>⊙</button>
+          <button title={collapsed ? "expand" : "collapse"}
+            onClick={() => setCollapsed(c => !c)}>{collapsed ? "+" : "–"}</button>
+        </div>
+      </div>
+      <div className="kf-explorer-body">
+        <label>
+          <span className="row"><span>nodes</span><span className="val">{t.nodeCount}</span></span>
+          <input type="range" min="6" max="60" step="1" value={t.nodeCount}
+            onChange={e => setTweak("nodeCount", +e.target.value)} />
+        </label>
+        <label>
+          <span className="row"><span>density</span><span className="val">{t.density.toFixed(2)}</span></span>
+          <input type="range" min="0" max="1" step="0.05" value={t.density}
+            onChange={e => setTweak("density", +e.target.value)} />
+        </label>
+        <label>
+          <span className="row"><span>curve</span><span className="val">{(t.curveStrength ?? 0).toFixed(2)}</span></span>
+          <input type="range" min="0" max="1" step="0.05" value={t.curveStrength ?? 0}
+            onChange={e => setTweak("curveStrength", +e.target.value)} />
+        </label>
+        <label>
+          <span className="row"><span>zoom</span><span className="val">{t.zoom.toFixed(2)}×</span></span>
+          <input type="range" min="0.4" max="2.6" step="0.05" value={t.zoom}
+            onChange={e => setTweak("zoom", +e.target.value)} />
+        </label>
+        <div>
+          <div className="row" style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 12 }}>
+            <span>layout</span>
+            <span className="val" style={{ fontFamily: "var(--font-mono)", fontSize: 11, opacity: .6 }}>{LAYOUT_LABEL[t.layout]}</span>
+          </div>
+          <div className="kf-seg">
+            {LAYOUTS.map(l => (
+              <button key={l}
+                className={t.layout === l ? "active" : ""}
+                onClick={() => setTweak("layout", l)}>{LAYOUT_LABEL[l]}</button>
+            ))}
+          </div>
+        </div>
+        <label className="kf-toggle">
+          <input type="checkbox" checked={!!t.blogAsNodes}
+            onChange={e => setTweak("blogAsNodes", e.target.checked)} />
+          <span>show blog posts as nodes</span>
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [route, setRoute] = React.useState("home");
+  const [blogPosts, setBlogPosts] = React.useState([]);
+
+  React.useEffect(() => {
+    fetch('content/blog-posts.json')
+      .then(r => r.ok ? r.json() : [])
+      .then(posts => setBlogPosts(posts))
+      .catch(() => setBlogPosts([]));
+  }, []);
+  const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
+  const [mobileExplorerOpen, setMobileExplorerOpen] = React.useState(false);
+  const [split, setSplit] = React.useState(48);
+  const [draggingSplit, setDraggingSplit] = React.useState(false);
+
+  const onDividerDown = React.useCallback((e) => {
+    e.preventDefault();
+    setDraggingSplit(true);
+    const move = (ev) => {
+      const pct = Math.round((ev.clientX / window.innerWidth) * 100);
+      setSplit(Math.max(25, Math.min(75, pct)));
+    };
+    const up = () => {
+      setDraggingSplit(false);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }, []);
+
+  React.useEffect(() => {
+    document.body.dataset.mode = t.mode;
+  }, [t.mode]);
+
+  React.useEffect(() => {
+    const grain = document.getElementById("grain");
+    if (grain) grain.style.opacity = (t.grain / 100).toString();
+  }, [t.grain]);
+
+  // Update <title> based on current route
+  React.useEffect(() => {
+    const labels = {
+      home: "Kayson Fakhar",
+      about: "About — Kayson Fakhar",
+      research: "Research — Kayson Fakhar",
+      cv: "CV — Kayson Fakhar",
+      blog: "Blog — Kayson Fakhar",
+      monkey: "Anxious Monkey — Kayson Fakhar",
+      contact: "Contact — Kayson Fakhar",
+    };
+    document.title = labels[route] || labels[route.split("/")[0]] || "Kayson Fakhar";
+  }, [route]);
+
+  const onNav = (id) => setRoute(id);
+  const aside = route !== "home";
+
+  // Parse compound routes like "blog/halftone-brain"
+  const parts = route.split("/");
+  const baseId = aside ? parts[0] : null;
+  const subId  = aside && parts.length > 1 ? parts[1] : null;
+
+  return (
+    <>
+      <Nav current={aside ? baseId : route} onNav={onNav} mobileNavOpen={mobileNavOpen} onMobileNavToggle={setMobileNavOpen} solid={aside} />
+
+      {/* Graph stage is always mounted so physics state survives navigation */}
+      <div
+        className={"kf-stage" + (aside ? " aside" : "") + (draggingSplit ? " splitting" : "")}
+        style={aside ? { right: `${100 - split}%`, transform: "none" } : {}}
+        data-screen-label="01 graph"
+      >
+        <Graph
+          nodeCount={t.nodeCount}
+          density={t.density}
+          speed={t.speed}
+          dark={t.mode === "dark"}
+          layout={t.layout}
+          blogPosts={t.blogAsNodes ? blogPosts : []}
+          zoom={t.zoom}
+          onZoomChange={v => setTweak("zoom", v)}
+          curveStrength={t.curveStrength ?? 0}
+          aside={aside}
+          onNavigate={onNav}
+        />
+      </div>
+
+      {!aside && (
+        <>
+          <div className="kf-hint">drag empty space to spin · drag a node to move it · scroll to zoom · click to enter</div>
+          <div className="kf-footer">
+            <span>kayson fakhar — computational neuroscience, cambridge</span>
+            <span>printed on the web · 2026</span>
+          </div>
+          <button
+            className={"kf-fab-manipulate" + (mobileExplorerOpen ? " open" : "")}
+            onClick={() => setMobileExplorerOpen(o => !o)}
+          >{mobileExplorerOpen ? "✕ close" : "▦ manipulate"}</button>
+        </>
+      )}
+
+      <Explorer t={t} setTweak={setTweak} hidden={aside} mobileVisible={mobileExplorerOpen} />
+
+      {aside && (
+        <div
+          className={"kf-split-divider" + (draggingSplit ? " dragging splitting" : "")}
+          style={{ left: `${split}%` }}
+          onPointerDown={onDividerDown}
+        />
+      )}
+
+      {aside && (
+        <div
+          key={route}
+          className={"kf-detail kf-route" + (draggingSplit ? " splitting" : "")}
+          style={{ left: `${split}%` }}
+          data-screen-label={`02 ${baseId}`}
+        >
+          <Page id={baseId} sub={subId} onNav={onNav} />
+        </div>
+      )}
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection title="Atmosphere">
+          <TweakSlider label="Grain" value={t.grain} min={0} max={100} step={1} onChange={v => setTweak("grain", v)} />
+          <TweakSlider label="Idle spin speed" value={t.speed} min={0} max={3} step={0.1} onChange={v => setTweak("speed", v)} />
+          <TweakRadio label="Color mode" value={t.mode} options={[
+            { value: "light", label: "Paper" },
+            { value: "cream", label: "Cream" },
+            { value: "dark",  label: "Ink" },
+          ]} onChange={v => setTweak("mode", v)} />
+        </TweakSection>
+      </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("app")).render(<App />);
+</script>
+</body>
+</html>
