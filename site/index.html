@@ -65,6 +65,20 @@
   .kf-navlinks a:hover { color: #F53A61; }
   .kf-navlinks a.active { color: #F53A61; border-bottom-color: #F53A61; }
 
+  /* Day/night toggle */
+  .kf-mode-toggle {
+    background: transparent; border: 0; cursor: pointer;
+    color: #fff; font-size: 16px; line-height: 1;
+    padding: 4px 6px; margin-left: 16px;
+    transition: color 120ms, transform 220ms cubic-bezier(.4,1.6,.4,1);
+    align-self: center;
+  }
+  .kf-mode-toggle:hover { color: #F53A61; transform: rotate(-12deg) scale(1.1); }
+  .kf-nav.solid .kf-mode-toggle { color: var(--fg1, #111); }
+  body[data-mode="dark"] .kf-mode-toggle { color: #f4f4f0; }
+  body[data-mode="dark"] .kf-nav.solid .kf-mode-toggle { color: #f4f4f0; }
+  .kf-nav-right { display: flex; align-items: center; }
+
   /* ── Graph stage ─────────────────────────────────── */
   .kf-stage {
     position: fixed;
@@ -102,9 +116,28 @@
   body[data-mode="dark"] .kf-split-divider.dragging::after { background: #F53A61; }
 
   /* ── Grain overlay ───────────────────────────────── */
+  /* Two layers of the same noise PNG, offset, so the 256px tile period
+     isn't perceptible to the eye. Light mode uses dark pixels via multiply;
+     dark mode uses light pixels via screen. */
   .kf-grain {
     position: fixed; inset: 0; pointer-events: none; z-index: 30;
     mix-blend-mode: multiply;
+    background-image: var(--kf-grain-light), var(--kf-grain-light);
+    background-repeat: repeat, repeat;
+    background-size: 256px 256px, 256px 256px;
+    background-position: 0 0, 83px 137px;
+    will-change: opacity;
+  }
+  body[data-mode="dark"] .kf-grain {
+    mix-blend-mode: screen;
+    background-image: var(--kf-grain-dark), var(--kf-grain-dark);
+  }
+  @media (max-width: 640px) {
+    /* Smaller tiles on mobile — finer grain at high DPR */
+    .kf-grain {
+      background-size: 180px 180px, 180px 180px;
+      background-position: 0 0, 67px 91px;
+    }
   }
 
   /* ── Footer ──────────────────────────────────────── */
@@ -224,6 +257,43 @@
   .kf-seg button.active { background: #F53A61; color: #fff; border-color: #F53A61; }
   .kf-toggle { display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; }
   .kf-toggle input { accent-color: #F53A61; }
+
+  /* Action buttons (perturb / scissors) */
+  .kf-actions {
+    display: grid; grid-template-columns: 1fr 44px; gap: 4px;
+  }
+  .kf-actions button {
+    font-family: var(--font-text); font-size: 11px;
+    background: transparent; color: inherit;
+    border: 1px solid rgba(0,0,0,0.6);
+    padding: 6px 8px; cursor: pointer; border-radius: 0;
+    letter-spacing: 0.04em; text-transform: lowercase;
+    user-select: none;
+  }
+  body[data-mode="dark"] .kf-actions button { border-color: rgba(244,244,240,0.6); }
+  .kf-actions .kf-perturb {
+    text-align: left;
+    display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  }
+  .kf-actions .kf-perturb .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: transparent; border: 1px solid currentColor;
+    transition: background 200ms;
+  }
+  .kf-actions .kf-perturb.kick { color: #F39C12; border-color: #F39C12; }
+  .kf-actions .kf-perturb.kick .dot { background: #F39C12; border-color: #F39C12;
+    animation: kfPulse 700ms ease-in-out infinite; }
+  .kf-actions .kf-perturb.loop { background: #F39C12; color: #fff; border-color: #F39C12; }
+  .kf-actions .kf-perturb.loop .dot { background: #fff; border-color: #fff;
+    animation: kfPulse 700ms ease-in-out infinite; }
+  @keyframes kfPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .kf-actions .kf-scissors { font-size: 14px; line-height: 1; padding: 6px 0; }
+  .kf-actions .kf-scissors.active { background: #F53A61; color: #fff; border-color: #F53A61; }
+  .kf-actions .kf-uncut {
+    grid-column: 1 / span 2;
+    font-size: 10px; padding: 4px 6px; opacity: 0.6;
+  }
+  .kf-actions .kf-uncut:hover { opacity: 1; }
 
   /* ── Route animation ─────────────────────────────── */
   .kf-route { animation: kfFade 320ms ease-out both; }
@@ -393,24 +463,40 @@
   body[data-mode="dark"] .kf-navlinks a { color: #f4f4f0; }
   body[data-mode="dark"] .kf-navlinks a.active,
   body[data-mode="dark"] .kf-navlinks a:hover { color: #F53A61; }
-  body[data-mode="dark"] .kf-grain { mix-blend-mode: screen; }
 </style>
 </head>
 <body>
 <div id="app"></div>
 
-<svg class="kf-grain" id="grain" width="100%" height="100%" preserveAspectRatio="none" aria-hidden="true">
-  <defs>
-    <filter id="kfNoise">
-      <feTurbulence type="fractalNoise" baseFrequency="1.7" numOctaves="2" seed="4" stitchTiles="stitch"/>
-      <feColorMatrix type="matrix" values="0 0 0 0 0
-                                            0 0 0 0 0
-                                            0 0 0 0 0
-                                            0 0 0 0.55 0"/>
-    </filter>
-  </defs>
-  <rect width="100%" height="100%" filter="url(#kfNoise)"/>
-</svg>
+<div class="kf-grain" id="grain" aria-hidden="true"></div>
+<script>
+  // Canvas-rendered grain (SVG feTurbulence renders unreliably on iOS Safari).
+  // We make two textures — dark pixels for "multiply" in light mode, light pixels
+  // for "screen" in dark mode — and tile each twice with an offset so the
+  // repeating tile pattern isn't visible to the eye.
+  (function paintGrain() {
+    const SIZE = 256;
+    function makeNoise(channel) {
+      const c = document.createElement('canvas');
+      c.width = SIZE; c.height = SIZE;
+      const cx = c.getContext('2d');
+      const img = cx.createImageData(SIZE, SIZE);
+      const d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        d[i] = d[i+1] = d[i+2] = channel;
+        // Sparse, low-alpha grain reads as fine paper texture rather than dots.
+        d[i+3] = Math.random() < 0.30 ? Math.floor(Math.random() * 90) : 0;
+      }
+      cx.putImageData(img, 0, 0);
+      return c.toDataURL('image/png');
+    }
+    const lightModeUrl = makeNoise(0);    // dark pixels for multiply on white
+    const darkModeUrl  = makeNoise(255);  // light pixels for screen on black
+    const root = document.documentElement;
+    root.style.setProperty('--kf-grain-light', `url(${lightModeUrl})`);
+    root.style.setProperty('--kf-grain-dark',  `url(${darkModeUrl})`);
+  })();
+</script>
 
 <!-- React + Babel (production builds can replace these) -->
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
@@ -432,7 +518,7 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "grain": 33,
   "speed": 2.9,
   "mode": "light",
-  "layout": "spring",
+  "layout": "random",
   "blogAsNodes": false,
   "zoom": 2.5230310518907113,
   "curveStrength": 0
@@ -447,7 +533,8 @@ const NAV_ITEMS = [
   { id: "contact",  label: "contact" },
 ];
 
-function Nav({ current, onNav, mobileNavOpen, onMobileNavToggle, solid }) {
+function Nav({ current, onNav, mobileNavOpen, onMobileNavToggle, solid, mode, onToggleMode }) {
+  const isDark = mode === "dark";
   return (
     <>
       <nav className={"kf-nav" + (solid ? " solid" : "")} data-screen-label="00 nav">
@@ -455,18 +542,26 @@ function Nav({ current, onNav, mobileNavOpen, onMobileNavToggle, solid }) {
           <span>kayson <span className="dot">▦</span> fakhar</span>
           <span className="kf-tagline">understanding complex networks through manipulation</span>
         </a>
-        <ul className="kf-navlinks">
-          {NAV_ITEMS.map(it => (
-            <li key={it.id}>
-              <a onClick={() => onNav(it.id)} className={current === it.id ? "active" : ""}>{it.label}.</a>
-            </li>
-          ))}
-        </ul>
-        <button
-          className={"kf-hamburger" + (mobileNavOpen ? " open" : "")}
-          onClick={() => onMobileNavToggle(!mobileNavOpen)}
-          aria-label={mobileNavOpen ? "close menu" : "open menu"}
-        >{mobileNavOpen ? "✕" : "☰"}</button>
+        <div className="kf-nav-right">
+          <ul className="kf-navlinks">
+            {NAV_ITEMS.map(it => (
+              <li key={it.id}>
+                <a onClick={() => onNav(it.id)} className={current === it.id ? "active" : ""}>{it.label}.</a>
+              </li>
+            ))}
+          </ul>
+          <button
+            className="kf-mode-toggle"
+            onClick={onToggleMode}
+            title={isDark ? "switch to light" : "switch to dark"}
+            aria-label={isDark ? "switch to light mode" : "switch to dark mode"}
+          >{isDark ? "☀" : "☾"}</button>
+          <button
+            className={"kf-hamburger" + (mobileNavOpen ? " open" : "")}
+            onClick={() => onMobileNavToggle(!mobileNavOpen)}
+            aria-label={mobileNavOpen ? "close menu" : "open menu"}
+          >{mobileNavOpen ? "✕" : "☰"}</button>
+        </div>
       </nav>
       {mobileNavOpen && (
         <div className="kf-nav-overlay" onClick={() => onMobileNavToggle(false)}>
@@ -490,7 +585,7 @@ function Nav({ current, onNav, mobileNavOpen, onMobileNavToggle, solid }) {
 const LAYOUTS = ["random", "spring"];
 const LAYOUT_LABEL = { "random": "random", "spring": "spring" };
 
-function Explorer({ t, setTweak, hidden, mobileVisible }) {
+function Explorer({ t, setTweak, hidden, mobileVisible, perturbMode, cutMode, onPerturbClick, onCutToggle, onUncutAll }) {
   const [collapsed, setCollapsed] = React.useState(false);
   const [pos, setPos] = React.useState(() => {
     try {
@@ -568,11 +663,34 @@ function Explorer({ t, setTweak, hidden, mobileVisible }) {
             ))}
           </div>
         </div>
-        <label className="kf-toggle">
-          <input type="checkbox" checked={!!t.blogAsNodes}
-            onChange={e => setTweak("blogAsNodes", e.target.checked)} />
-          <span>show blog posts as nodes</span>
-        </label>
+        <div>
+          <div className="row" style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 12 }}>
+            <span>actions</span>
+            <span className="val" style={{ fontFamily: "var(--font-mono)", fontSize: 10, opacity: .5 }}>
+              {perturbMode === "loop" ? "looping" : perturbMode === "kick" ? "kicking" : cutMode ? "cut mode" : "idle"}
+            </span>
+          </div>
+          <div className="kf-actions">
+            <button
+              className={"kf-perturb " + perturbMode}
+              onClick={onPerturbClick}
+              title="click: one kick · double-click: continuous"
+            >
+              <span>perturb</span>
+              <span className="dot" />
+            </button>
+            <button
+              className={"kf-scissors" + (cutMode ? " active" : "")}
+              onClick={onCutToggle}
+              title="cut: click nodes or links to fade them out"
+              aria-label="scissors"
+            >✂</button>
+            {(cutMode) && (
+              <button className="kf-uncut" onClick={onUncutAll}
+                title="restore all cut nodes and edges">restore cuts</button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -593,6 +711,48 @@ function App() {
   const [mobileExplorerOpen, setMobileExplorerOpen] = React.useState(false);
   const [split, setSplit] = React.useState(48);
   const [draggingSplit, setDraggingSplit] = React.useState(false);
+
+  // ── Perturb / Cut controls ────────────────────────────────────
+  // perturbMode: "off" | "kick" | "loop"
+  const [perturbMode, setPerturbMode] = React.useState("off");
+  const [perturbTrigger, setPerturbTrigger] = React.useState(0);
+  const [cutMode, setCutMode] = React.useState(false);
+  const clickTimerRef = React.useRef(null);
+  const kickTimerRef = React.useRef(null);
+  const perturbModeRef = React.useRef("off");
+  React.useEffect(() => { perturbModeRef.current = perturbMode; }, [perturbMode]);
+
+  const onPerturbClick = React.useCallback(() => {
+    if (clickTimerRef.current) {
+      // Second click within window → treat as double-click → loop
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+      clearTimeout(kickTimerRef.current);
+      setPerturbMode("loop");
+      setPerturbTrigger(n => n + 1);
+      return;
+    }
+    clickTimerRef.current = setTimeout(() => {
+      clickTimerRef.current = null;
+      const prev = perturbModeRef.current;
+      if (prev === "loop") {
+        setPerturbMode("off");
+        return;
+      }
+      // off or kick — fire one kick, (re)enter kick state
+      setPerturbTrigger(n => n + 1);
+      clearTimeout(kickTimerRef.current);
+      kickTimerRef.current = setTimeout(() => {
+        if (perturbModeRef.current === "kick") setPerturbMode("off");
+      }, 6500);
+      setPerturbMode("kick");
+    }, 240);
+  }, []);
+
+  const onCutToggle = React.useCallback(() => setCutMode(c => !c), []);
+  const onUncutAll = React.useCallback(() => {
+    if (window.__kfUncutAll) window.__kfUncutAll();
+  }, []);
 
   const onDividerDown = React.useCallback((e) => {
     e.preventDefault();
@@ -633,17 +793,34 @@ function App() {
     document.title = labels[route] || labels[route.split("/")[0]] || "Kayson Fakhar";
   }, [route]);
 
-  const onNav = (id) => setRoute(id);
+  const onNav = (id) => {
+    // External links: open in a new tab, don't change the route
+    if (typeof id === "string" && /^https?:\/\//.test(id)) {
+      window.open(id, "_blank", "noopener,noreferrer");
+      return;
+    }
+    setRoute(id);
+  };
   const aside = route !== "home";
 
-  // Parse compound routes like "blog/halftone-brain"
-  const parts = route.split("/");
+  // Parse compound routes like "blog/halftone-brain" or "research#causal-inference-..."
+  const [routePath, routeAnchor] = route.split("#");
+  const parts = routePath.split("/");
   const baseId = aside ? parts[0] : null;
   const subId  = aside && parts.length > 1 ? parts[1] : null;
+  const anchor = aside ? (routeAnchor || null) : null;
 
   return (
     <>
-      <Nav current={aside ? baseId : route} onNav={onNav} mobileNavOpen={mobileNavOpen} onMobileNavToggle={setMobileNavOpen} solid={aside} />
+      <Nav
+        current={aside ? baseId : route}
+        onNav={onNav}
+        mobileNavOpen={mobileNavOpen}
+        onMobileNavToggle={setMobileNavOpen}
+        solid={aside}
+        mode={t.mode}
+        onToggleMode={() => setTweak("mode", t.mode === "dark" ? "light" : "dark")}
+      />
 
       {/* Graph stage is always mounted so physics state survives navigation */}
       <div
@@ -657,12 +834,15 @@ function App() {
           speed={t.speed}
           dark={t.mode === "dark"}
           layout={t.layout}
-          blogPosts={t.blogAsNodes ? blogPosts : []}
+          blogPosts={blogPosts}
           zoom={t.zoom}
           onZoomChange={v => setTweak("zoom", v)}
           curveStrength={t.curveStrength ?? 0}
           aside={aside}
           onNavigate={onNav}
+          perturbTrigger={perturbTrigger}
+          perturbLoop={perturbMode === "loop"}
+          cutMode={cutMode}
         />
       </div>
 
@@ -680,7 +860,16 @@ function App() {
         </>
       )}
 
-      <Explorer t={t} setTweak={setTweak} hidden={aside} mobileVisible={mobileExplorerOpen} />
+      <Explorer
+        t={t} setTweak={setTweak}
+        hidden={aside}
+        mobileVisible={mobileExplorerOpen}
+        perturbMode={perturbMode}
+        cutMode={cutMode}
+        onPerturbClick={onPerturbClick}
+        onCutToggle={onCutToggle}
+        onUncutAll={onUncutAll}
+      />
 
       {aside && (
         <div
@@ -692,12 +881,12 @@ function App() {
 
       {aside && (
         <div
-          key={route}
+          key={routePath}
           className={"kf-detail kf-route" + (draggingSplit ? " splitting" : "")}
           style={{ left: `${split}%` }}
           data-screen-label={`02 ${baseId}`}
         >
-          <Page id={baseId} sub={subId} onNav={onNav} />
+          <Page id={baseId} sub={subId} anchor={anchor} onNav={onNav} />
         </div>
       )}
 

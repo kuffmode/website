@@ -4,6 +4,38 @@
    Blog post list is fetched from content/blog-posts.json
 */
 
+// ── Slug helper ─────────────────────────────────────────────────────
+function slugify(s) {
+  return String(s).toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+// Custom marked renderer: add slug ids on headings so we can deep-link
+// from the graph (e.g. research#causal-inference-in-neuroscience).
+// Note: marked.use() invokes renderer methods with the legacy
+// (text, level, raw) signature even on v13 — text is already inline-rendered HTML.
+(function setupMarked() {
+  if (typeof marked === 'undefined' || marked.__kfHeadingIdsSetup) return;
+  marked.use({
+    renderer: {
+      heading(text, level) {
+        // Handle both legacy (string, number) and token-based ({ tokens, depth }) shapes
+        if (typeof text === 'object' && text !== null) {
+          const tokens = text.tokens;
+          const depth = text.depth;
+          const rendered = (this && this.parser) ? this.parser.parseInline(tokens) : (text.text || '');
+          const plain = String(rendered).replace(/<[^>]*>/g, '');
+          return `<h${depth} id="${slugify(plain)}">${rendered}</h${depth}>\n`;
+        }
+        const plain = String(text).replace(/<[^>]*>/g, '');
+        return `<h${level} id="${slugify(plain)}">${text}</h${level}>\n`;
+      }
+    }
+  });
+  marked.__kfHeadingIdsSetup = true;
+})();
+
 // ── Frontmatter parser ──────────────────────────────────────────────
 function parseFrontmatter(text) {
   const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
@@ -84,10 +116,22 @@ function ParallaxBg() {
 }
 
 // ── Page component ──────────────────────────────────────────────────
-function Page({ id, sub, onNav }) {
+function Page({ id, sub, anchor, onNav }) {
   const { loading, meta, html, posts } = usePage(id, sub);
   const isBlogPost = !!sub;
   const isBlogIndex = id === 'blog' && !sub;
+  const proseRef = React.useRef(null);
+
+  // Scroll to anchored heading after render
+  React.useEffect(() => {
+    if (loading || !anchor) return;
+    // Delay so the slide-in animation settles before we scroll
+    const t = setTimeout(() => {
+      const el = document.getElementById(anchor);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [anchor, loading, html]);
 
   if (loading) {
     return (
@@ -117,6 +161,7 @@ function Page({ id, sub, onNav }) {
 
         {/* Body — rendered markdown */}
         <div
+          ref={proseRef}
           className="kf-prose"
           dangerouslySetInnerHTML={{ __html: html }}
         />

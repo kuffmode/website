@@ -1,6 +1,7 @@
 /* 3D node-graph landing.
    Features: drag-individual-nodes, drag-empty-space-rotates, click=>focus,
    zoom (wheel), 4 layout types, blog posts as nodes, "aside" mini-mode.
+   Now also: SER perturbation model + scissors/cut mode.
 */
 
 const PAGES = [
@@ -12,15 +13,43 @@ const PAGES = [
   { id: "contact",  label: "contact",            href: "contact",  clickable: true, kind: "page" },
 ];
 
+const RESEARCH_THEMES = [
+  { id: "theme-tele",   label: "teleological brain",   href: "research#teleological-understanding-of-the-human-brain",     clickable: true, kind: "theme" },
+  { id: "theme-causal", label: "causal inference",     href: "research#causal-inference-in-neuroscience",                   clickable: true, kind: "theme" },
+  { id: "theme-struc",  label: "structural backbone",  href: "research#structural-backbone-of-computation-in-the-brain",    clickable: true, kind: "theme" },
+];
+
+const ABOUT_SECTIONS = [
+  { id: "about-bridge",   label: "structure × dynamics × function", href: "about#bridging-structure-dynamics-and-function-in-the-brain",     clickable: true, kind: "section" },
+  { id: "about-rigorous", label: "rigorous causal inference",       href: "about#the-search-for-a-rigorous-foundation-for-causal-inference", clickable: true, kind: "section" },
+  { id: "about-behavior", label: "from behavior to computation",    href: "about#from-behavior-to-computation",                              clickable: true, kind: "section" },
+  { id: "about-clinical", label: "clinical psychology",             href: "about#foundations-in-clinical-psychology",                        clickable: true, kind: "section" },
+  { id: "about-beyond",   label: "beyond the lab",                  href: "about#beyond-the-lab",                                            clickable: true, kind: "section" },
+];
+
+const CONTACT_LINKS = [
+  { id: "ext-scholar",  label: "google scholar", href: "https://scholar.google.com/citations?user=652pLAUAAAAJ&hl=en", clickable: true, kind: "external" },
+  { id: "ext-bluesky",  label: "bluesky",        href: "https://bsky.app/profile/kayson.bsky.social",                  clickable: true, kind: "external" },
+  { id: "ext-twitter",  label: "twitter",        href: "https://twitter.com/kaysonfakhar",                             clickable: true, kind: "external" },
+  { id: "ext-linkedin", label: "linkedin",       href: "https://www.linkedin.com/in/kaysonfakhar/",                    clickable: true, kind: "external" },
+  { id: "ext-spotify",  label: "spotify",        href: "https://open.spotify.com/artist/4V9FIRrYQ0drSzZm9YK3sk",       clickable: true, kind: "external" },
+];
+
 function buildNodeList(nodeCount, blogPosts) {
   const postNodes = (blogPosts || []).map(p => ({
-    id: p.id,
+    id: "post-" + p.id,
     label: p.title.toLowerCase().replace(/\.$/, ''),
     href: "blog/" + p.id,
     clickable: true,
     kind: "post",
   }));
-  const clickable = postNodes.length ? [...PAGES, ...postNodes] : [...PAGES];
+  const clickable = [
+    ...PAGES,
+    ...RESEARCH_THEMES,
+    ...ABOUT_SECTIONS,
+    ...postNodes,
+    ...CONTACT_LINKS,
+  ];
   const fillerCount = Math.max(0, nodeCount - clickable.length);
   const fillers = Array.from({length: fillerCount}, (_, i) => ({
     id: "n" + i, label: "", clickable: false, kind: "filler"
@@ -262,6 +291,17 @@ function easeSigmoid(t) {
   return (f(t) - f0) / (f1 - f0);
 }
 
+// ── Helpers for cut/SER ────────────────────────────────────────────
+function edgeKey(a, b) { return a < b ? a + "-" + b : b + "-" + a; }
+function pointToSegmentDist(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const lenSq = dx*dx + dy*dy;
+  let t = lenSq > 0 ? ((px-ax)*dx + (py-ay)*dy) / lenSq : 0;
+  t = Math.max(0, Math.min(1, t));
+  const cx = ax + t*dx, cy = ay + t*dy;
+  return Math.hypot(px - cx, py - cy);
+}
+
 // ── Component ───────────────────────────────────────────────────────
 function Graph({
   nodeCount = 16, density = 0.5, speed = 1, dark = false,
@@ -269,12 +309,16 @@ function Graph({
   zoom = 1, onZoomChange,
   curveStrength = 0,
   aside = false,
-  onNavigate
+  onNavigate,
+  perturbTrigger = 0,
+  perturbLoop = false,
+  cutMode = false,
 }) {
   const canvasRef = React.useRef(null);
   const wrapRef = React.useRef(null);
   const [graph, setGraph] = React.useState(() => buildGraph(nodeCount, density, layout, blogPosts));
   const [hover, setHover] = React.useState(null);
+  const [hoverEdge, setHoverEdge] = React.useState(null); // for cut-mode edge highlight
   const [size, setSize] = React.useState({w: 800, h: 600});
   // mutable node positions held in ref so we can drag in-place without re-layout
   const posRef = React.useRef(graph.nodes.map(n => ({x:n.x, y:n.y, z:n.z})));
@@ -291,13 +335,105 @@ function Graph({
     animDur: 0,
     idleSpin: true,
     rotating: false,
-    nodeDrag: null, // {idx, depth} — depth is z-distance for unproject plane
+    nodeDrag: null,
     lastX: 0, lastY: 0,
     dragStartX: 0, dragStartY: 0,
     velX: 0, velY: 0,
     lastInteract: performance.now(),
     projected: [],
+    // SER + cut state
+    ser: [],
+    activatedAt: [],
+    pulseScale: [],
+    adj: [],
+    cutNodes: new Set(),
+    cutEdges: new Set(),
+    perturbLoop: false,
+    lastKick: 0,
+    lastSerTick: 0,
   });
+
+  // Re-init SER state and adjacency when graph changes
+  React.useEffect(() => {
+    const N = graph.nodes.length;
+    const s = stateRef.current;
+    s.ser = new Array(N).fill("S");
+    s.activatedAt = new Array(N).fill(0);
+    s.pulseScale = new Array(N).fill(1);
+    s.adj = Array.from({length: N}, () => []);
+    for (const [a, b] of graph.edges) {
+      s.adj[a].push(b);
+      s.adj[b].push(a);
+    }
+    s.cutNodes = new Set();
+    s.cutEdges = new Set();
+    s.lastKick = 0;
+    s.lastSerTick = 0;
+  }, [graph]);
+
+  // SER helpers (closures over current graph)
+  const kickSER = React.useCallback(() => {
+    const s = stateRef.current;
+    const N = graph.nodes.length;
+    if (!s.ser.length) return;
+    const candidates = [];
+    for (let i = 0; i < N; i++) {
+      if (s.ser[i] === "S" && !s.cutNodes.has(i)) candidates.push(i);
+    }
+    if (!candidates.length) return;
+    const k = Math.min(candidates.length, 1 + Math.floor(Math.random() * 2));
+    const picked = new Set();
+    for (let n = 0; n < k * 4 && picked.size < k; n++) {
+      picked.add(candidates[Math.floor(Math.random() * candidates.length)]);
+    }
+    const now = performance.now();
+    picked.forEach(idx => {
+      s.ser[idx] = "E";
+      s.activatedAt[idx] = now;
+    });
+    s.lastKick = now;
+  }, [graph]);
+
+  const stepSER = React.useCallback(() => {
+    const s = stateRef.current;
+    const N = graph.nodes.length;
+    const ser = s.ser;
+    if (!ser.length) return true;
+    const newSer = ser.slice();
+    const wasE = ser.map(x => x === "E");
+    const now = performance.now();
+    for (let i = 0; i < N; i++) {
+      if (s.cutNodes.has(i)) { newSer[i] = "S"; continue; }
+      if (ser[i] === "E") {
+        newSer[i] = "R";
+      } else if (ser[i] === "R") {
+        if (Math.random() < 0.35) newSer[i] = "S";
+      } else {
+        const neighbors = s.adj[i] || [];
+        let any = false;
+        for (const j of neighbors) {
+          if (s.cutNodes.has(j)) continue;
+          if (s.cutEdges.has(edgeKey(i, j))) continue;
+          if (wasE[j]) { any = true; break; }
+        }
+        if (any && Math.random() < 0.45) {
+          newSer[i] = "E";
+          s.activatedAt[i] = now;
+        }
+      }
+    }
+    s.ser = newSer;
+    return newSer.every(x => x === "S");
+  }, [graph]);
+
+  // External triggers
+  React.useEffect(() => {
+    if (perturbTrigger > 0) kickSER();
+  }, [perturbTrigger, kickSER]);
+
+  React.useEffect(() => {
+    stateRef.current.perturbLoop = perturbLoop;
+  }, [perturbLoop]);
 
   React.useEffect(() => {
     setGraph(buildGraph(nodeCount, density, layout, blogPosts));
@@ -343,16 +479,50 @@ function Graph({
     let last = performance.now();
 
     const palette = dark ? {
-      bg: "transparent", node: "#f4f4f0", post: "#7a7a78",
-      hover: "#F53A61", label: "#F53A61",
+      node: "#f4f4f0",          // internal clickable (page/theme/section/post)
+      filler: "#5a5a58",         // non-clickable
+      hoverInt: "#F53A61",       // red — hovered internal
+      hoverExt: "#5b9eff",       // blue — hovered external (contact)
+      active: "#FFB627",         // SER excited — bright
+      activeR: "#a36e1a",        // SER refractory — faded
+      label: "#F53A61",
+      labelExt: "#5b9eff",
+      cutFlash: "#F53A61",
     } : {
-      bg: "transparent", node: "rgba(0,0,0,0.92)", post: "#9a9a99",
-      hover: "#F53A61", label: "#F53A61",
+      node: "rgba(0,0,0,0.92)",
+      filler: "#9a9a99",
+      hoverInt: "#F53A61",
+      hoverExt: "#004992",
+      active: "#F39C12",
+      activeR: "#7a4f08",
+      label: "#F53A61",
+      labelExt: "#004992",
+      cutFlash: "#F53A61",
     };
+
+    // Detect narrow viewports — mobile Safari handles ctx.filter blur poorly,
+    // so we skip canvas blur there and rely on alpha/size/shadow cues instead.
+    const isMobile = typeof window !== "undefined"
+      && window.matchMedia
+      && window.matchMedia("(max-width: 640px)").matches;
 
     const draw = (now) => {
       const dt = Math.min(50, now - last); last = now;
       const s = stateRef.current;
+
+      // SER tick
+      if (graph.nodes.length && now - s.lastSerTick > 350) {
+        s.lastSerTick = now;
+        const anyActive = s.ser.some(x => x !== "S");
+        if (anyActive) {
+          const dead = stepSER();
+          if (dead && s.perturbLoop && now - s.lastKick > 900) {
+            kickSER();
+          }
+        } else if (s.perturbLoop && now - s.lastKick > 900) {
+          kickSER();
+        }
+      }
 
       if (s.targetQ) {
         const t = Math.min(1, (now - s.animStart) / s.animDur);
@@ -373,7 +543,6 @@ function Graph({
           const dq = qFromAxisAngle([0,1,0], ang);
           s.q = qNormalize(qMul(dq, s.q));
         } else if (s.idleSpin && (now - s.lastInteract) > 1500 && aside) {
-          // very slow even in aside mode
           const ang = 0.0004 * speed * (dt/16.67);
           const dq = qFromAxisAngle([0,1,0], ang);
           s.q = qNormalize(qMul(dq, s.q));
@@ -384,9 +553,30 @@ function Graph({
       const cx = w/2, cy = h/2;
       const cameraZ = 800;
       const pos = posRef.current;
+
+      // Update pulse-scale per node (smooth pull-toward-center on activation)
+      const N = graph.nodes.length;
+      for (let i = 0; i < N; i++) {
+        const st = s.ser[i];
+        const target = (st === "E") ? 0.85 : (st === "R" ? 0.92 : 1.0);
+        s.pulseScale[i] = s.pulseScale[i] + (target - s.pulseScale[i]) * 0.12;
+      }
+
       const projected = graph.nodes.map((n, i) => {
         const p = pos[i];
-        const v = qApply(s.q, [p.x, p.y, p.z]);
+        const sc = s.pulseScale[i] || 1;
+        // Wobble offset for excited nodes
+        let wox = 0, woy = 0, woz = 0;
+        const sinceAct = now - (s.activatedAt[i] || 0);
+        if (sinceAct < 800 && s.ser[i] !== "S") {
+          const decay = Math.max(0, 1 - sinceAct / 800);
+          const phase = i * 12.7;
+          const amp = 7 * decay;
+          wox = amp * Math.sin(sinceAct * 0.04 + phase);
+          woy = amp * Math.cos(sinceAct * 0.05 + phase * 1.3);
+          woz = amp * 0.5 * Math.sin(sinceAct * 0.06 + phase * 0.7);
+        }
+        const v = qApply(s.q, [p.x * sc + wox, p.y * sc + woy, p.z * sc + woz]);
         const persp = cameraZ / (cameraZ - v[2] * zoom);
         return {
           i, n,
@@ -403,8 +593,6 @@ function Graph({
 
       ctx.clearRect(0,0,w,h);
 
-      const sorted = [...projected].sort((a,b) => a.z - b.z);
-
       // World-space center for curve bending (origin since we recenter)
       const centerWorld = [0, 0, 0];
       const centerView = qApply(s.q, centerWorld);
@@ -412,23 +600,33 @@ function Graph({
       const centerPx = cx + centerView[0] * cpersp * zoom;
       const centerPy = cy + centerView[1] * cpersp * zoom;
 
-      for (const [a, b] of graph.edges) {
+      // ── Edges ─────────────────────────────────────────────────────
+      for (let ei = 0; ei < graph.edges.length; ei++) {
+        const [a, b] = graph.edges[ei];
         const pa = projected[a], pb = projected[b];
         const zMid = (pa.z + pb.z)/2;
         const t = (zMid - minZ) / zRange;
         const blur = (1 - t) * 8;
         const lw = (0.4 + t * 1.6) * zoom;
-        const alpha = 0.18 + t * 0.55;
+        const isCut = s.cutEdges.has(edgeKey(a, b)) || s.cutNodes.has(a) || s.cutNodes.has(b);
+        const baseAlpha = 0.18 + t * 0.55;
+        const alpha = isCut ? baseAlpha * 0.2 : baseAlpha;
+        const isHoverEdge = cutMode && hoverEdge === ei;
+
         ctx.save();
-        ctx.filter = blur > 0.5 ? `blur(${blur.toFixed(1)}px)` : "none";
-        ctx.strokeStyle = dark
-          ? `rgba(244,244,240,${alpha.toFixed(2)})`
-          : `rgba(0,0,0,${alpha.toFixed(2)})`;
-        ctx.lineWidth = lw;
+        ctx.filter = (!isMobile && blur > 0.5) ? `blur(${blur.toFixed(1)}px)` : "none";
+        if (isHoverEdge) {
+          ctx.strokeStyle = palette.cutFlash;
+          ctx.lineWidth = lw + 1.2;
+        } else {
+          ctx.strokeStyle = dark
+            ? `rgba(244,244,240,${alpha.toFixed(2)})`
+            : `rgba(0,0,0,${alpha.toFixed(2)})`;
+          ctx.lineWidth = lw;
+        }
         ctx.beginPath();
         ctx.moveTo(pa.px, pa.py);
         if (curveStrength > 0.001) {
-          // Quadratic curve toward graph center; control point biases toward centerPx/Py
           const mx = (pa.px + pb.px) / 2;
           const my = (pa.py + pb.py) / 2;
           const cxp = mx + (centerPx - mx) * curveStrength;
@@ -441,24 +639,67 @@ function Graph({
         ctx.restore();
       }
 
+      // ── Nodes ─────────────────────────────────────────────────────
+      const sorted = [...projected].sort((a,b) => a.z - b.z);
       for (const p of sorted) {
         const t = (p.z - minZ) / zRange;
         const blur = (1 - t) * 10;
-        const baseR = (5 + t * 9) * zoom;
-        const r = baseR * (hover === p.i ? 1.45 : 1);
-        const isHover = hover === p.i && p.n.clickable;
-        const isPost = p.n.kind === "post";
+        // Slightly larger size variance for stronger depth on small screens
+        const baseR = (4 + t * 11) * zoom;
+        const isHoverThis = hover === p.i && p.n.clickable && !cutMode;
+        const r = baseR * (isHoverThis ? 1.45 : 1);
+        const isExternal = p.n.kind === "external";
+        const isClickable = p.n.clickable;
+        const isCut = s.cutNodes.has(p.i);
+        const serState = s.ser[p.i] || "S";
+        const isHoverCut = cutMode && hover === p.i && isClickable;
+
+        let fill;
+        if (serState === "E") {
+          fill = palette.active;
+        } else if (serState === "R") {
+          fill = palette.activeR;
+        } else if (isHoverCut) {
+          fill = palette.cutFlash;
+        } else if (isHoverThis) {
+          fill = isExternal ? palette.hoverExt : palette.hoverInt;
+        } else if (!isClickable) {
+          fill = palette.filler;
+        } else {
+          fill = palette.node;
+        }
+
+        // Depth fade: far nodes more transparent. Active nodes stay vivid.
+        const depthAlpha = serState !== "S" ? 1.0 : (0.45 + t * 0.55);
+        const opacity = (isCut ? 0.2 : 1.0) * depthAlpha;
+
         ctx.save();
-        ctx.filter = blur > 0.5 ? `blur(${blur.toFixed(1)}px)` : "none";
-        ctx.fillStyle = isHover ? palette.hover : (isPost ? palette.post : palette.node);
+        ctx.filter = (!isMobile && blur > 0.5) ? `blur(${blur.toFixed(1)}px)` : "none";
+        // Foreground halo — adds depth where canvas-blur is unavailable (mobile)
+        if (t > 0.55 || serState === "E") {
+          ctx.shadowColor = serState === "E" ? palette.active : fill;
+          ctx.shadowBlur = serState === "E" ? 22 : (isMobile ? 14 : 10) * t;
+        }
+        ctx.globalAlpha = opacity;
+        ctx.fillStyle = fill;
         ctx.beginPath();
-        ctx.arc(p.px, p.py, isPost ? r * 0.82 : r, 0, Math.PI*2);
+        ctx.arc(p.px, p.py, !isClickable ? r * 0.78 : r, 0, Math.PI*2);
         ctx.fill();
+        ctx.shadowBlur = 0;
+        // Glow ring for active
+        if (serState === "E") {
+          ctx.beginPath();
+          ctx.arc(p.px, p.py, r * 1.9, 0, Math.PI*2);
+          ctx.fillStyle = palette.active;
+          ctx.globalAlpha = 0.18 * opacity;
+          ctx.fill();
+        }
         ctx.restore();
 
-        if (isHover && t > 0.25) {
+        // Label on hover (clickable nodes only)
+        if (isHoverThis && t > 0.25 && p.n.label) {
           ctx.save();
-          ctx.fillStyle = palette.label;
+          ctx.fillStyle = isExternal ? palette.labelExt : palette.label;
           ctx.font = "500 16px 'IBM Plex Sans', sans-serif";
           ctx.textBaseline = "middle";
           ctx.fillText(p.n.label, p.px + r + 12, p.py);
@@ -472,7 +713,7 @@ function Graph({
     };
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
-  }, [size, graph, hover, speed, dark, zoom, aside, curveStrength]);
+  }, [size, graph, hover, hoverEdge, speed, dark, zoom, aside, curveStrength, cutMode, stepSER, kickSER]);
 
   const onPointerDown = (e) => {
     const s = stateRef.current;
@@ -483,10 +724,7 @@ function Graph({
     s.idleSpin = false;
     e.currentTarget.setPointerCapture(e.pointerId);
 
-    // Hit-test for node grab
-    if (hover != null) {
-      // remember the z-depth (rotated) of the grabbed node so we drag in its plane
-      const proj = s.projected[hover];
+    if (hover != null && !cutMode) {
       const pos = posRef.current[hover];
       const v = qApply(s.q, [pos.x, pos.y, pos.z]);
       s.nodeDrag = { idx: hover, vz: v[2] };
@@ -501,32 +739,43 @@ function Graph({
     const y = e.clientY - rect.top;
     const s = stateRef.current;
 
-    // Hit test only when not dragging anything
     if (!s.rotating && !s.nodeDrag) {
       const proj = s.projected || [];
       let hit = null;
-      const sorted = [...proj].sort((a,b)=>b.z-a.z);
+      const sortedDesc = [...proj].sort((a,b)=>b.z-a.z);
       const minZ = proj.length ? Math.min(...proj.map(q=>q.z)) : 0;
       const maxZ = proj.length ? Math.max(...proj.map(q=>q.z)) : 1;
       const zRange = Math.max(1, maxZ - minZ);
-      for (const p of sorted) {
+      for (const p of sortedDesc) {
         const t = (p.z - minZ) / zRange;
-        const r = (5 + t*9) * zoom;
+        const r = (4 + t*11) * zoom;
         const dx = x - p.px, dy = y - p.py;
         if (dx*dx + dy*dy < (r + 8)*(r + 8)) { hit = p.i; break; }
       }
       setHover(hit);
+
+      // Edge hit-test for cut mode (only when no node hovered)
+      if (cutMode && hit == null && proj.length) {
+        let bestE = null, bestD = 7;
+        for (let ei = 0; ei < graph.edges.length; ei++) {
+          const [a, b] = graph.edges[ei];
+          const pa = proj[a], pb = proj[b];
+          const d = pointToSegmentDist(x, y, pa.px, pa.py, pb.px, pb.py);
+          if (d < bestD) { bestD = d; bestE = ei; }
+        }
+        setHoverEdge(bestE);
+      } else if (hoverEdge != null) {
+        setHoverEdge(null);
+      }
     }
 
     if (s.nodeDrag) {
-      // Move the dragged node so its projected position follows the cursor.
       const w = size.w, h = size.h;
       const cx = w/2, cy = h/2;
       const cameraZ = 800;
       const persp = cameraZ / (cameraZ - s.nodeDrag.vz * zoom);
       const newVx = (x - cx) / (persp * zoom);
       const newVy = (y - cy) / (persp * zoom);
-      // Inverse-rotate (newVx, newVy, vz) by q -> world
       const qInv = qConj(s.q);
       const worldNew = qApply(qInv, [newVx, newVy, s.nodeDrag.vz]);
       posRef.current[s.nodeDrag.idx] = { x: worldNew[0], y: worldNew[1], z: worldNew[2] };
@@ -555,8 +804,6 @@ function Graph({
 
   const onPointerUp = (e) => {
     const s = stateRef.current;
-    const wasRotating = s.rotating;
-    const wasNodeDrag = s.nodeDrag;
     s.rotating = false;
     s.nodeDrag = null;
     s.lastInteract = performance.now();
@@ -565,31 +812,62 @@ function Graph({
     const dx = e.clientX - s.dragStartX;
     const dy = e.clientY - s.dragStartY;
     const moved = Math.hypot(dx, dy);
+    if (moved >= 5) return;
 
-    if (moved < 5 && hover != null) {
+    if (cutMode) {
+      // Cut a node or an edge
+      if (hover != null) {
+        const node = graph.nodes[hover];
+        if (node.clickable) {
+          if (s.cutNodes.has(hover)) s.cutNodes.delete(hover);
+          else s.cutNodes.add(hover);
+        }
+      } else if (hoverEdge != null) {
+        const [a, b] = graph.edges[hoverEdge];
+        const k = edgeKey(a, b);
+        if (s.cutEdges.has(k)) s.cutEdges.delete(k);
+        else s.cutEdges.add(k);
+      }
+      return;
+    }
+
+    if (hover != null) {
       const node = graph.nodes[hover];
-      if (node.clickable) {
-        rotateNodeToFront(hover, () => onNavigate?.(node.href));
+      if (node.clickable && !s.cutNodes.has(hover)) {
+        if (node.kind === "external") {
+          // External link — open in new tab, no rotation/transition
+          if (typeof window !== "undefined" && node.href) {
+            window.open(node.href, "_blank", "noopener,noreferrer");
+          }
+        } else {
+          rotateNodeToFront(hover, () => onNavigate?.(node.href));
+        }
       }
     }
   };
 
-  // Expose a recenter handle to the host page (Explorer button calls this)
+  // Expose recenter + uncut handles to the host page
   React.useEffect(() => {
     window.__kfRecenter = () => {
       const s = stateRef.current;
-      // reset rotation to identity, restore positions to their layout values, kill velocity
       s.qStart = s.q.slice();
       s.targetQ = qIdentity();
       s.animStart = performance.now();
       s.animDur = 700;
       s.idleSpin = true;
       s.velX = 0; s.velY = 0;
-      // restore node positions from the laid-out graph (undoes manual node drags)
       posRef.current = graph.nodes.map(n => ({x:n.x, y:n.y, z:n.z}));
       s.lastInteract = performance.now();
     };
-    return () => { if (window.__kfRecenter) delete window.__kfRecenter; };
+    window.__kfUncutAll = () => {
+      const s = stateRef.current;
+      s.cutNodes.clear();
+      s.cutEdges.clear();
+    };
+    return () => {
+      if (window.__kfRecenter) delete window.__kfRecenter;
+      if (window.__kfUncutAll) delete window.__kfUncutAll;
+    };
   }, [graph]);
 
   const rotateNodeToFront = (idx, after) => {
@@ -609,20 +887,26 @@ function Graph({
     setTimeout(() => after?.(), 1100);
   };
 
+  const cursorStyle = (() => {
+    if (cutMode) {
+      if (hover != null && graph.nodes[hover]?.clickable) return "crosshair";
+      if (hoverEdge != null) return "crosshair";
+      return "crosshair";
+    }
+    return hover != null && graph.nodes[hover]?.clickable ? "pointer" : "grab";
+  })();
+
   return (
     <div
       ref={wrapRef}
-      style={{
-        position: "absolute", inset: 0,
-        cursor: hover != null && graph.nodes[hover]?.clickable ? "pointer" : "grab"
-      }}
+      style={{ position: "absolute", inset: 0, cursor: cursorStyle }}
     >
       <canvas
         ref={canvasRef}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerLeave={() => { setHover(null); }}
+        onPointerLeave={() => { setHover(null); setHoverEdge(null); }}
         style={{display:"block", touchAction:"none"}}
       />
     </div>

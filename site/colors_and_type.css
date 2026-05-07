@@ -282,3 +282,22 @@ ul.zine-list li::before {
   color: var(--color-riso-magenta);
   font-size: 0.9em;
 }
+
+/* ---------- Dark-mode token overrides ----------
+   The base tokens above bake in pure-black ink for headings and links;
+   re-pointing them at light values when [data-mode="dark"] keeps every
+   `var(--fg-…)` consumer (h1/h2/h3/hr/buttons) readable on the dark page.
+*/
+body[data-mode="dark"] {
+  --bg:               #0a0a0a;
+  --color-ink:        rgba(244, 244, 240, 0.92);
+  --color-ink-pure:   #f4f4f0;
+  --color-ink-soft:   #f4f4f0;
+  --color-hairline:   rgba(244, 244, 240, 0.2);
+  --fg1:              rgba(244, 244, 240, 0.92);
+  --fg2:              rgba(244, 244, 240, 0.55);
+  --fg-display:       #f4f4f0;
+  --hover:            #f4f4f0;
+  --rule:             rgba(244, 244, 240, 0.2);
+  --border-button:    2px solid rgba(244, 244, 240, 0.92);
+}
