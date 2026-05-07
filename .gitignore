@@ -1,1 +1,8 @@
 site/.DS_Store
+site/content/.DS_Store
+.gitignore
+site/content/posts/.DS_Store
+.gitignore
+.DS_Store
+convert_html_to_md.py
+site/generate_blog_index.py
