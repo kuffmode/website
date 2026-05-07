@@ -101,6 +101,9 @@
   --rule:         var(--color-hairline);
   --selection:    var(--color-riso-magenta);
 
+  /* Blog post metadata box */
+  --color-metadata-bg: rgba(245, 58, 97, 0.03);
+
   /* Typography — families */
   --font-display: "Hagrid", "Times New Roman", serif;
   --font-text:    "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
@@ -300,4 +303,5 @@ body[data-mode="dark"] {
   --hover:            #f4f4f0;
   --rule:             rgba(244, 244, 240, 0.2);
   --border-button:    2px solid rgba(244, 244, 240, 0.92);
+  --color-metadata-bg: rgba(245, 58, 97, 0.08);
 }

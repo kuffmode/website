@@ -43,7 +43,7 @@ for fname in sorted(os.listdir(POSTS_DIR)):
 # Sort: by 'date' field if present, otherwise by file modification time — newest first.
 posts.sort(key=lambda p: p["_date"] if p["_date"] else str(p["_mtime"]), reverse=True)
 
-output = [{"id": p["id"], "title": p["title"]} for p in posts]
+output = [{"id": p["id"], "title": p["title"], "date": p["_date"]} for p in posts]
 
 with open(OUTPUT, "w", encoding="utf-8") as f:
     json.dump(output, f, indent=2, ensure_ascii=False)

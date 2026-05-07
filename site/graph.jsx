@@ -36,13 +36,27 @@ const CONTACT_LINKS = [
 ];
 
 function buildNodeList(nodeCount, blogPosts) {
-  const postNodes = (blogPosts || []).map(p => ({
-    id: "post-" + p.id,
-    label: p.title.toLowerCase().replace(/\.$/, ''),
-    href: "blog/" + p.id,
-    clickable: true,
-    kind: "post",
-  }));
+  const postNodes = (blogPosts || []).map(p => {
+    // Extract date from post.date or post.id (format: YYYY-MM-DD or YYYY-MM-DD_title)
+    let dateTag = p.date;
+    if (!dateTag && p.id) {
+      const match = p.id.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) {
+        dateTag = match[1] + match[2] + match[3]; // YYYYMMDD format
+      }
+    }
+    // Remove hyphens from date if present
+    if (dateTag) {
+      dateTag = dateTag.replace(/-/g, '');
+    }
+    return {
+      id: "post-" + p.id,
+      label: dateTag || p.title.toLowerCase().replace(/\.$/, ''),
+      href: "blog/" + p.id,
+      clickable: true,
+      kind: "post",
+    };
+  });
   const clickable = [
     ...PAGES,
     ...RESEARCH_THEMES,

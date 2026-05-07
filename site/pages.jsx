@@ -159,6 +159,47 @@ function Page({ id, sub, anchor, onNav }) {
           <h1 className="kf-page-title">{meta.title}</h1>
         )}
 
+        {/* Blog post metadata box */}
+        {isBlogPost && (meta.description || meta.date || meta.author) && (
+          <div style={{
+            border: '2px solid var(--color-hairline)',
+            borderRadius: '8px',
+            padding: '18px 24px',
+            marginBottom: '32px',
+            background: 'var(--color-metadata-bg, rgba(245, 58, 97, 0.03))',
+          }}>
+            {meta.description && (
+              <p style={{
+                fontFamily: 'var(--font-text)',
+                fontSize: '16px',
+                fontStyle: 'italic',
+                lineHeight: 1.6,
+                margin: '0 0 12px 0',
+                color: 'var(--fg2, rgba(0,0,0,0.75))',
+              }}>{meta.description}</p>
+            )}
+            <div style={{
+              display: 'flex',
+              gap: '20px',
+              flexWrap: 'wrap',
+              fontSize: '14px',
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--fg3, rgba(0,0,0,0.6))',
+            }}>
+              {meta.date && (
+                <span>
+                  <strong style={{ color: '#F53A61' }}>Date:</strong> {meta.date}
+                </span>
+              )}
+              {meta.author && (
+                <span>
+                  <strong style={{ color: '#F53A61' }}>Author:</strong> {meta.author}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Body — rendered markdown */}
         <div
           ref={proseRef}
