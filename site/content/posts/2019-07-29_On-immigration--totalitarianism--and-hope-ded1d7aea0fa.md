@@ -4,8 +4,6 @@ description: "And a bit of The Handmaid’s Tale"
 date: 2019-07-29
 ---
 
-# On immigration, totalitarianism, and hope
-
 And a bit of The Handmaid’s TaleIt was roughly three years ago when I moved to Germany to study Neuroscience. All this time I wasn’t sure if I can call myself “*immigrant*” because there was no war in my country nor much of terrorist attacks. I was frustrated though, living in Iran for me was getting extremely hard and now by watching this slow-folding TV Series “*The Handmaid’s Tale*” I realized I kinda am an immigrant. In this post, I want to write a bit about how does it feel like to leave your life behind and start a new one because someone else is having fun. I want to talk about totalitarianism. And hope? It’s just in the title, I want to talk about why not having hope might work better.
 
 On omnipresent instructions from authorities’ imaginary friend:So, I was born and raised in Tehran, the capital of Iran and I was born when the political situation was a bit settled. The Iran-Iraq war was finally over after eight years and both sides losing hundreds of thousands of their people. Flash forward, I was a teenager exploring myself and the society and here are the first points of friction. I wasn’t religious and I had zero problems with religious people but usually, they weren’t as benign as I was. I was keep being forced to practice stuff like not eating and drinking in public during Ramadan or a constant paranoia of getting into troubles while hanging out with my female friends or simply not being welcomed to some official places (including my university campus) just because my hair is long. Yeah, I faked a document that my hair is long because I’m having a role in a theatre show, going up to the high-level security members to let me in with a hat covering my hair! I’m not saying it’s a general thing but this itself is a part of the problem. The security team of each university has its own nuances implementing Islamic rules so I specifically had the issue with “one member” who was the hater.
@@ -45,9 +43,3 @@ On the hope that I lack:So here’s the end. I think if you’re a European, Am
 ![Image](https://cdn-images-1.medium.com/max/800/1*jweCEciWj_aeP3RtT_KtlA@2x.jpeg)
 
 Don’t put your heads under the snow and be pitiful about Middle Eastern crises. We’re all in this together because the right-wings share interests no matter which country they are emerging from.[Iranian and US right-wingers were both were dreaming about one day the nuclear deal turning into a joke](https://en.wikipedia.org/wiki/Criticism_of_the_Joint_Comprehensive_Plan_of_Action)although they claim to be life-long enemies. So I believe hope doesn’t do anything and might actually diffuse the responsibility. Leave it. It’s either us stoping this nonsense by keeping them out of the game or some gigantic shit will hit the fan soon.
-
-By[Kayson](https://medium.com/@kayson)on[July 29, 2019](https://medium.com/p/ded1d7aea0fa).
-
-[Canonical link](https://medium.com/@kayson/on-immigration-totalitarian-regimes-and-hope-ded1d7aea0fa)
-
-Exported from[Medium](https://medium.com)on May 7, 2026.

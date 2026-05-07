@@ -4,10 +4,6 @@ description: "Until it’s not."
 date: 2021-02-02
 ---
 
-# Everything is under control.
-
-Until it’s not.
-
 I remember when I was proudly saying:*“Nah, man, I’m not into politics. It’s all lies and deception.”*I was proud that I’m avoiding the trickery by not involving myself in it. Not reading news, not paying attention to my rights, not getting into discussions because,*Duh, I’m better than this. Let those bastards do their things, and I’ll do mine.*
 
 Then I immigrated. I slowly realized that one reason I was avoiding politics was the fear. I was living with a constant fear of getting myself into trouble if I figure out what is actually happening in my country. I’m out for more than four years now, and now I have access to propaganda from many sides and not just Iran’s. I read things, I watch things, I learn things, lot’s of AHA moments, but all this time, I was asking the same question whenever I was reading anything about some dictator-ruled country:***Why the hell are you doing this?***
@@ -89,9 +85,3 @@ Weirdly, Wintrobe’s model predicted the shitshow and now has a really on-point
 > “Suppose now that we are dealing with a totalitarian dictator. Again, if loyaltywere to increase, on balance, as the result of the trade agreement, the dictator would tend to raise repression, and the binding human rights constraint is necessary to prevent a loss of freedom. The only case for a trade agreement with a totalitarian regime is where the opposite happens, and loyalty to the regime decreases from the trade agreement. In that case, repression falls as well. This is the only case where trade with a totalitarian regime makes sense.”
 
 ![Image](https://cdn-images-1.medium.com/max/800/1*cbNSSiJ6zeoXXlLGQHTvCw.jpeg)
-
-By[Kayson](https://medium.com/@kayson)on[February 2, 2021](https://medium.com/p/c3bdafd39b2f).
-
-[Canonical link](https://medium.com/@kayson/everything-is-under-control-c3bdafd39b2f)
-
-Exported from[Medium](https://medium.com)on May 7, 2026.
