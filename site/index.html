@@ -506,22 +506,35 @@
 <!-- Markdown parser -->
 <script src="https://cdn.jsdelivr.net/npm/marked@13/marked.min.js"></script>
 
+<!-- Three.js + Postprocessing -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/BokehShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/BokehPass.js"></script>
+
+<!-- Site config (edit config.js to change defaults without touching code) -->
+<script src="config.js"></script>
+
 <!-- Site modules -->
 <script type="text/babel" src="tweaks-panel.jsx"></script>
 <script type="text/babel" src="graph.jsx"></script>
 <script type="text/babel" src="pages.jsx"></script>
 
 <script type="text/babel">
+const _cfg = window.SITE_CONFIG?.defaults || {};
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
-  "nodeCount": 13,
-  "density": 0.3,
-  "grain": 20,
-  "speed": 2.9,
-  "mode": "light",
-  "layout": "random",
-  "blogAsNodes": false,
-  "zoom": 1.0,
-  "curveStrength": 0
+  "nodeCount":     _cfg.nodeCount     ?? 13,
+  "density":       _cfg.density       ?? 0.3,
+  "grain":         _cfg.grain         ?? 20,
+  "speed":         _cfg.speed         ?? 2.9,
+  "mode":          _cfg.mode          ?? "light",
+  "layout":        _cfg.layout        ?? "random",
+  "blogAsNodes":   _cfg.blogAsNodes   ?? false,
+  "zoom":          _cfg.zoom          ?? 1.0,
+  "curveStrength": _cfg.curveStrength ?? 0
 }/*EDITMODE-END*/;
 
 const NAV_ITEMS = [
