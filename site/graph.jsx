@@ -730,7 +730,48 @@ function Graph({
     return () => cancelAnimationFrame(raf);
   }, [size, graph, hover, hoverEdge, speed, dark, zoom, aside, curveStrength, cutMode, stepSER, kickSER]);
 
+  const getHit = (x, y) => {
+    const s = stateRef.current;
+    const proj = s.projected || [];
+    let hitNode = null;
+    let hitEdge = null;
+    
+    if (proj.length) {
+      const sortedDesc = [...proj].sort((a,b)=>b.z-a.z);
+      const minZ = Math.min(...proj.map(q=>q.z));
+      const maxZ = Math.max(...proj.map(q=>q.z));
+      const zRange = Math.max(1, maxZ - minZ);
+      for (const p of sortedDesc) {
+        const t = (p.z - minZ) / zRange;
+        const r = (4 + t*11) * zoom;
+        const dx = x - p.px, dy = y - p.py;
+        if (dx*dx + dy*dy < (r + 8)*(r + 8)) { hitNode = p.i; break; }
+      }
+      
+      if (cutMode && hitNode == null) {
+        let bestE = null, bestD = 7;
+        for (let ei = 0; ei < graph.edges.length; ei++) {
+          const [a, b] = graph.edges[ei];
+          const pa = proj[a], pb = proj[b];
+          const d = pointToSegmentDist(x, y, pa.px, pa.py, pb.px, pb.py);
+          if (d < bestD) { bestD = d; bestE = ei; }
+        }
+        hitEdge = bestE;
+      }
+    }
+    return { hitNode, hitEdge };
+  };
+
   const onPointerDown = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // Immediate hit test for touch devices where hover isn't pre-populated
+    const { hitNode, hitEdge } = getHit(x, y);
+    setHover(hitNode);
+    setHoverEdge(hitEdge);
+
     const s = stateRef.current;
     s.lastX = e.clientX; s.lastY = e.clientY;
     s.dragStartX = e.clientX; s.dragStartY = e.clientY;
@@ -739,10 +780,10 @@ function Graph({
     s.idleSpin = false;
     e.currentTarget.setPointerCapture(e.pointerId);
 
-    if (hover != null && !cutMode) {
-      const pos = posRef.current[hover];
+    if (hitNode != null && !cutMode) {
+      const pos = posRef.current[hitNode];
       const v = qApply(s.q, [pos.x, pos.y, pos.z]);
-      s.nodeDrag = { idx: hover, vz: v[2] };
+      s.nodeDrag = { idx: hitNode, vz: v[2] };
     } else {
       s.rotating = true;
     }
@@ -755,33 +796,9 @@ function Graph({
     const s = stateRef.current;
 
     if (!s.rotating && !s.nodeDrag) {
-      const proj = s.projected || [];
-      let hit = null;
-      const sortedDesc = [...proj].sort((a,b)=>b.z-a.z);
-      const minZ = proj.length ? Math.min(...proj.map(q=>q.z)) : 0;
-      const maxZ = proj.length ? Math.max(...proj.map(q=>q.z)) : 1;
-      const zRange = Math.max(1, maxZ - minZ);
-      for (const p of sortedDesc) {
-        const t = (p.z - minZ) / zRange;
-        const r = (4 + t*11) * zoom;
-        const dx = x - p.px, dy = y - p.py;
-        if (dx*dx + dy*dy < (r + 8)*(r + 8)) { hit = p.i; break; }
-      }
-      setHover(hit);
-
-      // Edge hit-test for cut mode (only when no node hovered)
-      if (cutMode && hit == null && proj.length) {
-        let bestE = null, bestD = 7;
-        for (let ei = 0; ei < graph.edges.length; ei++) {
-          const [a, b] = graph.edges[ei];
-          const pa = proj[a], pb = proj[b];
-          const d = pointToSegmentDist(x, y, pa.px, pa.py, pb.px, pb.py);
-          if (d < bestD) { bestD = d; bestE = ei; }
-        }
-        setHoverEdge(bestE);
-      } else if (hoverEdge != null) {
-        setHoverEdge(null);
-      }
+      const { hitNode, hitEdge } = getHit(x, y);
+      setHover(hitNode);
+      setHoverEdge(hitEdge);
     }
 
     if (s.nodeDrag) {
@@ -829,16 +846,22 @@ function Graph({
     const moved = Math.hypot(dx, dy);
     if (moved >= 5) return;
 
+    // Use synchronous hit test to ensure tapping works independently of state race conditions
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const { hitNode, hitEdge } = getHit(x, y);
+
     if (cutMode) {
       // Cut a node or an edge
-      if (hover != null) {
-        const node = graph.nodes[hover];
+      if (hitNode != null) {
+        const node = graph.nodes[hitNode];
         if (node.clickable) {
-          if (s.cutNodes.has(hover)) s.cutNodes.delete(hover);
-          else s.cutNodes.add(hover);
+          if (s.cutNodes.has(hitNode)) s.cutNodes.delete(hitNode);
+          else s.cutNodes.add(hitNode);
         }
-      } else if (hoverEdge != null) {
-        const [a, b] = graph.edges[hoverEdge];
+      } else if (hitEdge != null) {
+        const [a, b] = graph.edges[hitEdge];
         const k = edgeKey(a, b);
         if (s.cutEdges.has(k)) s.cutEdges.delete(k);
         else s.cutEdges.add(k);
@@ -846,16 +869,16 @@ function Graph({
       return;
     }
 
-    if (hover != null) {
-      const node = graph.nodes[hover];
-      if (node.clickable && !s.cutNodes.has(hover)) {
+    if (hitNode != null) {
+      const node = graph.nodes[hitNode];
+      if (node.clickable && !s.cutNodes.has(hitNode)) {
         if (node.kind === "external") {
           // External link — open in new tab, no rotation/transition
           if (typeof window !== "undefined" && node.href) {
             window.open(node.href, "_blank", "noopener,noreferrer");
           }
         } else {
-          rotateNodeToFront(hover, () => onNavigate?.(node.href));
+          rotateNodeToFront(hitNode, () => onNavigate?.(node.href));
         }
       }
     }
