@@ -9,9 +9,9 @@ Currently, I'm a post-doctoral researcher at the 4D Group, based at the Universi
 ___
 ## In detail
 
-### Bridging Structure, Dynamics, and Function in the Brain
+### Bridging Structure, Dynamics, and Function in the Brain Through Perturbations
 
-I am currently a Postdoctoral Researcher at the University of Cambridge. My research sits at the intersection of cognitive and computational neuroscience. Driven by a long-standing desire to understand the root causes of human behavior and neuropsychiatric conditions, I use computational methods to uncover how the structural and functional complexities of the brain link to each other. Specifically, I apply tools from network science, causal inference, dynamical systems theory, and game theory to study the brain across multiple levels: its physical architecture, its communication landscape, and the behaviors it ultimately produces (or fails to do).
+My research sits at the intersection of cognitive and computational neuroscience. Driven by a long-standing desire to understand the root causes of human behavior and neuropsychiatric conditions, I use computational methods to uncover how the structural and functional complexities of the brain link to each other. Specifically, I apply tools from network science, causal inference, dynamical systems theory, and game theory to study the brain across multiple levels: its physical architecture, its communication landscape, and the behaviors it ultimately produces (or fails to do).
 
 ### The Search for a Rigorous Foundation for Causal Inference
 

@@ -6,9 +6,10 @@
 
 const PAGES = [
   { id: "about",    label: "about",              href: "about",    clickable: true, kind: "page" },
-  { id: "research", label: "research interests", href: "research", clickable: true, kind: "page" },
-  { id: "cv",       label: "cv",                 href: "cv",       clickable: true, kind: "page" },
-  { id: "blog",     label: "blog",               href: "blog",     clickable: true, kind: "page" },
+  { id: "research",         label: "research interests", href: "research",         clickable: true, kind: "page" },
+  { id: "cv",               label: "cv",                 href: "cv",               clickable: true, kind: "page" },
+  { id: "interactive-media", label: "interactive media",  href: "interactive-media", clickable: true, kind: "page" },
+  { id: "blog",             label: "blog",               href: "blog",             clickable: true, kind: "page" },
   { id: "monkey",   label: "anxious monkey",     href: "monkey",   clickable: true, kind: "page" },
   { id: "contact",  label: "contact",            href: "contact",  clickable: true, kind: "page" },
 ];
