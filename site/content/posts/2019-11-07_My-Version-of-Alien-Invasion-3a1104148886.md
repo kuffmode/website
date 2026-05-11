@@ -10,7 +10,7 @@ So, personally I’m a big fan of aliens. They are intelligent, they are bipedal
 
 ![Image](https://cdn-images-1.medium.com/max/800/1*wW0IqzfBEQLBWzybcu4eDw.jpeg)
 
-# No Intelligence? No Problem.
+## No Intelligence? No Problem.
 
 Let’s jump straight into it. We already know a really stupid *thing* with literally no signs of intelligence that is beating our asses pretty well. Bacteria. Yeah, [there’s a war against bacteria](https://www.youtube.com/watch?v=OL8B1ZVLqSQ) and these tiny freaks are winning because we, ironically the intelligent side, are too messy to handle the battlefield properly. We make antibacterial substances but then they evolve and become resistant so we gotta make different/stronger ones and they become stronger as the result of our antibacterial addiction and the cycle repeats. What they are beating us at is coordination. They just don’t need it and we need to unite as the human race, which we are terrible at even as a football team.
 
@@ -22,13 +22,13 @@ If this is not smart for you check this fungus now. Yes it’s a goddamn fungus 
 
 ![Image](https://cdn-images-1.medium.com/max/800/1*jsUmgd0n2ZDkiY1NokSLiQ.jpeg)
 
-# Is It Plausible Though?
+## Is It Plausible Though?
 
 Oh well if grey acid spitter reptiles with laser guns are then why not these? I mean let’s check the grand design of the universe. There are billions of stars and tons of them are suitable to have some kind of life form evolving on them. But, we have no idea how their planet’s ecological factors shaped their organisms so let’s come back to earth now as an analogy. Here we have intelligent humans for about 10.000 years but we had single-cell organisms from millions of years ago so the sparking point is more probable but reaching this kind of intelligence is not at all.
 
 Then we have all the animal kingdom that are presumably not intelligent enough to make guns and attack us the kings so intermediate points are not enough either. What we’re dealing with is either a seriously simple organism that is*programmed*to reproduce and not die, going around by accident and spreading in a blink or a sophisticated cognitive übermachine that is capable of making rockets to actually go to another planet and do stuff. To me, it’s actually not only plausible but probable to get invaded by the bacterial like aliens instead of E.T like ones first coming in peace then somehow realizing we don’t deserve it. Even here on earth, we have plenty of such unintelligent aliens that are the true masters of the earth (go ahead, try wiping them out) but there’s only one Elon Musk sending his car to space. So, you calculate the odds for yourself.
 
-# A Lesson for A.I
+## A Lesson for A.I
 
 There was a point here on *intelligence.* **What is it?** We immediately go through the [history of measuring intelligence and all those psychological definitions that anthropomorphises the notion of intelligence.](https://en.wikipedia.org/wiki/Intelligence) Stephen Hawking [(probably not though but that’s not for us to debunk)](https://www.washingtonpost.com/news/answer-sheet/wp/2018/03/29/stephen-hawking-famously-said-intelligence-is-the-ability-to-adapt-to-change-but-did-he-really-say-it/) pointed towards an interesting direction saying:
 

@@ -10,7 +10,7 @@ The idea of *living in an unreal world* is a pretty scary yet popular one. Even 
 
 ![Image](https://cdn-images-1.medium.com/max/800/1*DlViwv8qBTE3ji3cxtOkhg.gif)
 
-# Is it possible?
+## Is it possible?
 
 So I remember about three years ago I read [a paper by Nick Bostrom](https://www.simulation-argument.com/simulation.pdf) that uses some statistics and probabilities to argue we are likely to be simulated. After a while, [a pretty interesting video by Kursgusagt](https://www.youtube.com/watch?v=tlTKTTt47WE) was published and extended the main paper by adding two more arguments to the original three ones so go check the video out if you don’t want to read the paper. Just to have a common ground tho, let me ruin the main arguments by trying to summarizing them into a line or two:
 
@@ -24,7 +24,7 @@ Another example, I was downloading Harry Potter posters with my dial-up connecti
 
 So, **if** we don’t fuck up our civilization, we probably are able to simulate *something* that will raise some ethical questions. I know there are limitations to Moore’s law due to how small we can go physically but also there are alternatives like quantum computing or biological computing. Also, well, even if we hit the rock bottom there, we’ll be having no ceiling. In principle, you can end up having a computer that fills up a whole city or even bigger.
 
-# How probable is it tho?
+## How probable is it tho?
 
 Anyway, what that simulated thing can be? Let’s think, that computer can simulate the *thing* in different scales. At largest, the thing might be the whole universe, with all of its physical properties and dynamics by a [3rd level civilization in the Kardashev scale](https://en.wikipedia.org/wiki/Kardashev_scale).
 
@@ -34,13 +34,13 @@ I wouldn’t if I had the power tho, I’m interested in minds and brains so for
 
 Let’s say we’re not that advanced. Scale it down then. Simulate just a city, just a group, just one person 100,000,000 times. You don’t even need to simulate everything just render whatever that person can perceive and the rest is nothing. Let me make it scarier, just put a brain into a vat and feed fake sensory input to it. I know we’re not even close to this but comparing to simulating the whole universe this is a joke.
 
-# But why?
+## But why?
 
 Ok now I’m gonna jump again, sorry for that but I’ll wrap everything together at the end, I promise. So far, I said: A decent computer can simulate a whole universe and shittier ones can reduce the scale to just one person. Oh well, you might ask why should anyone want to do it anyway? I shall give you the laziest answer here. **Curiosity.** I, personally, would do it and if there’s only one person like me with the power of simulation then it’s probably happening. Imagine how many questions you can answer by simulating just one person. You can change a single parameter (hair colour) and run the simulation and see how does hair colour changes stuff for that person. This is already happening actually. Computational neuroscientists are simulating small creatures living in a virtual world doing some stuff. They actually have a lifetime, they eat, they fight, they reproduce, and they die. Then the next generation will do it and [the so-called agent with the highest fitness will reproduce again and the same happens for many generations.](https://en.wikipedia.org/wiki/Evolutionary_algorithm) Then they change some parameters and see how it affects the output. What could possibly stop us from doing the same on a larger scale?
 
 Why are we doing it? [simulations help us to gain more knowledge about our own behaviour and the way that a biological nervous system performs different tasks.](https://science.sciencemag.org/content/338/6103/60) [It then feeds back to better Artificial Neural Networks that we use to simulate more realistic and better A.Is and the cycle repeats.](https://www.sciencedirect.com/science/article/pii/S0896627317305093) So the motivation is clear but even if I’m just a sick psychopath wanna drown my sim in a pool to see how the family reacts to his death, it’s kinda enough to assume it’s happening. The question next will be that if we are living in the scientific simulation or the psychotic one?
 
-# Now what?
+## Now what?
 
 Here’s the last part. Let me deliver my promise:
 

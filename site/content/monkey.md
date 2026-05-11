@@ -1,6 +1,6 @@
 ---
 kicker: Project
-title: Anxious Monkey: structuring sounds so I like them.
+title: Anxious Monkey: Composing Soundtracks for No One.
 ---
 
 Anxious Monkey is a personal project that I'm working on for years now. It's just me dealing with my life by turning some events/feelings/ideas into soundtracks. It all started back in 2009 with the name Monokuff, and after some time, I found it therapeutic enough to devote substantial time to it. After a few years and exploring different genres I think I'm now pretty much settled on a more electronic, neo-classic style under the influence of great composers such as Ludovico Einaudi, Steve Jablonsky, Gustavo Santaolalla, and Joseph Bishara (when it comes to horror soundtracks).
