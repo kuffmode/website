@@ -1,0 +1,287 @@
+[
+  {
+    "bib": {
+      "title": "Controlling reciprocity in binary and weighted networks: A novel density-conserving approach",
+      "author": "Fatemeh Hadaeghi and Kayson Fakhar and Claus C Hilgetag",
+      "pub_year": 2026,
+      "venue": "",
+      "journal": "Chaos: An Interdisciplinary Journal of Nonlinear Science",
+      "booktitle": "",
+      "volume": "36",
+      "number": "2",
+      "pages": ""
+    },
+    "scholar_url": "https://scholar.google.com/citations?view_op=view_citation&user=652pLAUAAAAJ&citation_for_view=652pLAUAAAAJ:roLk4NBRz8UC",
+    "num_citations": 3
+  },
+  {
+    "bib": {
+      "title": "A multivariate brain-behavior dimension of aging: linking motor-cognitive dual-task performance to individual functional connectivity profiles",
+      "author": "Yan Deng and Daniel Kristanto and Kayson Fakhar and Christiane Thiel",
+      "pub_year": 2026,
+      "venue": "",
+      "journal": "Clinical Neurophysiology",
+      "booktitle": "",
+      "volume": "186",
+      "number": "",
+      "pages": "2111616"
+    },
+    "scholar_url": "https://scholar.google.com/citations?view_op=view_citation&user=652pLAUAAAAJ&citation_for_view=652pLAUAAAAJ:Zph67rFs4hoC",
+    "num_citations": 0
+  },
+  {
+    "bib": {
+      "title": "Reciprocity-Controlled Recurrent Neural Networks: Why More Feedback Isn't Always Better",
+      "author": "Fatemeh Hadaeghi and Kayson Fakhar and Claus C Hilgeta",
+      "pub_year": 2026,
+      "venue": "",
+      "journal": "",
+      "booktitle": "",
+      "volume": "54",
+      "number": "SUPPL 1",
+      "pages": ""
+    },
+    "scholar_url": "https://scholar.google.com/citations?view_op=view_citation&user=652pLAUAAAAJ&citation_for_view=652pLAUAAAAJ:kNdYIx-mwKoC",
+    "num_citations": 0
+  },
+  {
+    "bib": {
+      "title": "Characterizing optimal communication in the human brain",
+      "author": "Kayson Fakhar and Fatemeh Hadaeghi and Caio Seguin and Alessandra Griffa and Shrey Dixit and Kenza Fliou and Arnaud Messe and Gorka Zamora-Lopez and Bratislav Misic and Claus Hilgetag",
+      "pub_year": 2026,
+      "venue": "",
+      "journal": "",
+      "booktitle": "",
+      "volume": "54",
+      "number": "SUPPL 1",
+      "pages": ""
+    },
+    "scholar_url": "https://scholar.google.com/citations?view_op=view_citation&user=652pLAUAAAAJ&citation_for_view=652pLAUAAAAJ:3fE2CSJIrl8C",
+    "num_citations": 0
+  },
+  {
+    "bib": {
+      "title": "A general framework for characterizing optimal communication in brain networks",
+      "author": "Kayson Fakhar and Fatemeh Hadaeghi and Caio Seguin and Shrey Dixit and Arnaud Messé and Gorka Zamora-López and Bratislav Misic and Claus C Hilgetag",
+      "pub_year": 2025,
+      "venue": "",
+      "journal": "Elife",
+      "booktitle": "",
+      "volume": "13",
+      "number": "",
+      "pages": "RP101780"
+    },
+    "scholar_url": "https://scholar.google.com/citations?view_op=view_citation&user=652pLAUAAAAJ&citation_for_view=652pLAUAAAAJ:_FxGoFyzp5QC",
+    "num_citations": 7
+  },
+  {
+    "bib": {
+      "title": "A computational perspective on the no-strong-loops principle in brain networks",
+      "author": "Fatemeh Hadaeghi and Kayson Fakhar and Moein Khajehnejad and Claus C Hilgetag",
+      "pub_year": 2025,
+      "venue": "",
+      "journal": "bioRxiv",
+      "booktitle": "",
+      "volume": "",
+      "number": "",
+      "pages": "2025.09. 24.678310"
+    },
+    "scholar_url": "https://scholar.google.com/citations?view_op=view_citation&user=652pLAUAAAAJ&citation_for_view=652pLAUAAAAJ:0EnyYjriUFMC",
+    "num_citations": 2
+  },
+  {
+    "bib": {
+      "title": "Human cortical networks trade communication efficiency for computational reliability",
+      "author": "Kayson Fakhar and Danyal Akarca and Andrea I Luppi and Stuart Oldham and Fatemeh Hadaeghi and Petra E Vértes and Ed Bullmore and Claus Hilgetag and Duncan Astle",
+      "pub_year": 2025,
+      "venue": "",
+      "journal": "bioRxiv",
+      "booktitle": "",
+      "volume": "",
+      "number": "",
+      "pages": "2025.12. 11.693716"
+    },
+    "scholar_url": "https://scholar.google.com/citations?view_op=view_citation&user=652pLAUAAAAJ&citation_for_view=652pLAUAAAAJ:MXK_kJrjxJIC",
+    "num_citations": 0
+  },
+  {
+    "bib": {
+      "title": "Domain-Specific Functional Network Adaptations Supporting Dual-Task Performance in Older Adults",
+      "author": "Yan Deng and AmirHussein Abdolalizadeh and Kayson Fakhar and Tina Schmitt and Karsten Witt and Carsten Gießing and Jochem W Rieger and Christiane M Thiel",
+      "pub_year": 2025,
+      "venue": "",
+      "journal": "bioRxiv",
+      "booktitle": "",
+      "volume": "",
+      "number": "",
+      "pages": "2025.09. 28.678786"
+    },
+    "scholar_url": "https://scholar.google.com/citations?view_op=view_citation&user=652pLAUAAAAJ&citation_for_view=652pLAUAAAAJ:5nxA0vEk-isC",
+    "num_citations": 0
+  },
+  {
+    "bib": {
+      "title": "Who Does What in Deep Learning? Multidimensional Game-Theoretic Attribution of Function of Neural Units",
+      "author": "Shrey Dixit and Kayson Fakhar and Fatemeh Hadaeghi and Patrick Mineault and Konrad P Kording and Claus C Hilgetag",
+      "pub_year": 2025,
+      "venue": "",
+      "journal": "arXiv preprint arXiv:2506.19732",
+      "booktitle": "",
+      "volume": "",
+      "number": "",
+      "pages": ""
+    },
+    "scholar_url": "https://scholar.google.com/citations?view_op=view_citation&user=652pLAUAAAAJ&citation_for_view=652pLAUAAAAJ:UebtZRa9Y70C",
+    "num_citations": 0
+  },
+  {
+    "bib": {
+      "title": "Attention-driven modulation of auditory cortex activity during selective listening in a multispeaker setting",
+      "author": "Sebastian Puschmann and Mor Regev and Kayson Fakhar and Robert J Zatorre and Christiane M Thiel",
+      "pub_year": 2024,
+      "venue": "",
+      "journal": "Journal of Neuroscience",
+      "booktitle": "",
+      "volume": "44",
+      "number": "15",
+      "pages": ""
+    },
+    "scholar_url": "https://scholar.google.com/citations?view_op=view_citation&user=652pLAUAAAAJ&citation_for_view=652pLAUAAAAJ:YsMSGLbcyi4C",
+    "num_citations": 13
+  },
+  {
+    "bib": {
+      "title": "Downstream network transformations dissociate neural activity from causal functional contributions",
+      "author": "Kayson Fakhar and Shrey Dixit and Fatemeh Hadaeghi and Konrad P Kording and Claus C Hilgetag",
+      "pub_year": 2024,
+      "venue": "",
+      "journal": "Scientific Reports",
+      "booktitle": "",
+      "volume": "14",
+      "number": "1",
+      "pages": "2103"
+    },
+    "scholar_url": "https://scholar.google.com/citations?view_op=view_citation&user=652pLAUAAAAJ&citation_for_view=652pLAUAAAAJ:ufrVoPGSRksC",
+    "num_citations": 9
+  },
+  {
+    "bib": {
+      "title": "A Game-theoretical Framework for Causal Inference: With Applications in Artificial Neural Networks and Large-scale Models of Brain Dynamics",
+      "author": "Kayson Fakhar",
+      "pub_year": 2024,
+      "venue": "",
+      "journal": "",
+      "booktitle": "",
+      "volume": "",
+      "number": "",
+      "pages": ""
+    },
+    "scholar_url": "https://scholar.google.com/citations?view_op=view_citation&user=652pLAUAAAAJ&citation_for_view=652pLAUAAAAJ:Se3iqnhoufwC",
+    "num_citations": 0
+  },
+  {
+    "bib": {
+      "title": "Simulation of neuroplasticity in a CNN-based in-silico model of neurodegeneration of the visual system",
+      "author": "Jasmine A Moore and Matthias Wilms and Alejandro Gutierrez and Zahinoor Ismail and Kayson Fakhar and Fatemeh Hadaeghi and Claus C Hilgetag and Nils D Forkert",
+      "pub_year": 2023,
+      "venue": "",
+      "journal": "Frontiers in Computational Neuroscience",
+      "booktitle": "",
+      "volume": "17",
+      "number": "",
+      "pages": "1274824"
+    },
+    "scholar_url": "https://scholar.google.com/citations?view_op=view_citation&user=652pLAUAAAAJ&citation_for_view=652pLAUAAAAJ:WF5omc3nYNoC",
+    "num_citations": 7
+  },
+  {
+    "bib": {
+      "title": "Systematic perturbation of an artificial neural network: A step towards quantifying causal contributions in the brain",
+      "author": "Kayson Fakhar and Claus C Hilgetag",
+      "pub_year": 2022,
+      "venue": "",
+      "journal": "PLOS Computational Biology",
+      "booktitle": "",
+      "volume": "18",
+      "number": "6",
+      "pages": "e1010250"
+    },
+    "scholar_url": "https://scholar.google.com/citations?view_op=view_citation&user=652pLAUAAAAJ&citation_for_view=652pLAUAAAAJ:zYLM7Y9cAGgC",
+    "num_citations": 25
+  },
+  {
+    "bib": {
+      "title": "Causal influences decouple from their underlying network structure in echo state networks",
+      "author": "Kayson Fakhar and Fatemeh Hadaeghi and Claus C Hilgetag",
+      "pub_year": 2022,
+      "venue": "",
+      "journal": "",
+      "booktitle": "",
+      "volume": "",
+      "number": "",
+      "pages": "1-8"
+    },
+    "scholar_url": "https://scholar.google.com/citations?view_op=view_citation&user=652pLAUAAAAJ&citation_for_view=652pLAUAAAAJ:IjCSPb-OGe4C",
+    "num_citations": 8
+  },
+  {
+    "bib": {
+      "title": "‘One region to control them all'-the surprising effectiveness of network control theory in predicting post-stroke recovery from aphasia",
+      "author": "Mariia Popova and Kayson Fakhar and Wilhelm Braun",
+      "pub_year": 2022,
+      "venue": "",
+      "journal": "Frontiers in Computational Neuroscience",
+      "booktitle": "",
+      "volume": "16",
+      "number": "",
+      "pages": "943396"
+    },
+    "scholar_url": "https://scholar.google.com/citations?view_op=view_citation&user=652pLAUAAAAJ&citation_for_view=652pLAUAAAAJ:Tyk-4Ss8FVUC",
+    "num_citations": 2
+  },
+  {
+    "bib": {
+      "title": "MSA: A compact Python package for Multiperturbation Shapley value Analysis.",
+      "author": "Kayson Fakhar and Shrey Dixit",
+      "pub_year": 2021,
+      "venue": "",
+      "journal": "",
+      "booktitle": "",
+      "volume": "",
+      "number": "",
+      "pages": ""
+    },
+    "scholar_url": "https://scholar.google.com/citations?view_op=view_citation&user=652pLAUAAAAJ&citation_for_view=652pLAUAAAAJ:eQOLeE2rZwMC",
+    "num_citations": 4
+  },
+  {
+    "bib": {
+      "title": "Neuronal causes and behavioural effects: a review on logical, methodological, and technical issues with respect to causal explanations of behaviour in neuroscience",
+      "author": "Kayson Fakhar and Dominic Gonschorek and Lisa Schmors and Natalia Bielczyk",
+      "pub_year": 2019,
+      "venue": "",
+      "journal": "",
+      "booktitle": "",
+      "volume": "",
+      "number": "",
+      "pages": ""
+    },
+    "scholar_url": "https://scholar.google.com/citations?view_op=view_citation&user=652pLAUAAAAJ&citation_for_view=652pLAUAAAAJ:qjMakFHDy7sC",
+    "num_citations": 1
+  },
+  {
+    "bib": {
+      "title": "Communication versus computation: The hidden costs, shaping the brain’s architecture",
+      "author": "Kayson Fakhar and Danyal Akarca and Andrea Luppi and Stuart Oldham and Fatemeh Hadaeghi and Petra Vertes and Claus Hilgetag and Duncan Astle",
+      "pub_year": "",
+      "venue": "",
+      "journal": "",
+      "booktitle": "",
+      "volume": "",
+      "number": "",
+      "pages": ""
+    },
+    "scholar_url": "https://scholar.google.com/citations?view_op=view_citation&user=652pLAUAAAAJ&citation_for_view=652pLAUAAAAJ:hqOjcs7Dif8C",
+    "num_citations": 0
+  }
+]
