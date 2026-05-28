@@ -5,7 +5,7 @@ title: Hi, I'm Kayson. I study resiliency of brains & AI models against differen
 ---
 
 ## In brief
-Currently, I'm a post-doctoral researcher at the 4D Group, based at the University of Cambridge. Broadly speaking, my focus is on resiliency in brain networks (and AI models) across structure, dynamics, and function. I use a combination of computational modeling, graph-theoretic analysis, game theory, and systematic perturbation experiments to understand how complex networks maintain stable function in the face of adversity.
+Currently, I'm a post-doctoral researcher at the 4D Group, based at the University of Cambridge. Broadly speaking, my focus is on what complex networks (such as brains and AI models) and their constituting nodes do against perturbations. Said differently, I study resiliency in brain networks (and AI models) across structure, dynamics, and function. I use a combination of computational modeling, graph-theoretic analysis, game theory, and systematic perturbation experiments to then piece together a mechanistic understanding of how complex networks maintain stable function in the face of adversity.
 ___
 ## In detail
 
@@ -15,7 +15,7 @@ My research sits at the intersection of cognitive and computational neuroscience
 
 ### The Search for a Rigorous Foundation for Causal Inference
 
-I completed my PhD in Computational Neuroscience at the University-Medical Centre Hamburg. During these five years, I drowned myself in learning and developing methodologies required to understand complex neural systems, exploring everything from graph theory to neuromorphic computing and explainable AI. My thesis focused on the very core of modern science, i.e., causality, by developing a game-theoretical framework for axiomatic causal inference, with applications in artificial neural networks and large-scale models of brain dynamics.
+I completed my PhD in Computational Neuroscience at the University-Medical Centre Hamburg. During these five years, I drowned myself in learning and developing methodologies required to understand complex (neural) systems, exploring everything from graph theory to network communication theory to game theory to dynamical systems theory to information theory to neuromorphic computing (expecting another _theory_, didn't you?) and explainable AI. My thesis focused on the very core of modern science, i.e., causality, by developing a game-theoretical framework for axiomatic causal inference, with applications in artificial neural networks and large-scale models of brain dynamics.
 
 ### From Behavior to Computation
 

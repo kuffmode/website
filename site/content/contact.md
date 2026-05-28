@@ -7,6 +7,8 @@ It's actually embarrasingly simple to reach out to me. You can find me on Twitte
 
 [Google Scholar](https://scholar.google.com/citations?user=652pLAUAAAAJ&hl=en)
 
+[ORCID](https://orcid.org/my-orcid?orcid=0000-0003-0615-1777)
+
 [Bluesky](https://bsky.app/profile/kayson.bsky.social)
 
 [Twitter](https://twitter.com/kaysonfakhar)
@@ -14,3 +16,4 @@ It's actually embarrasingly simple to reach out to me. You can find me on Twitte
 [Linkedin](https://www.linkedin.com/in/kaysonfakhar/)
 
 [Spotify](https://open.spotify.com/artist/4V9FIRrYQ0drSzZm9YK3sk?si=P4xKin4GRf2kO371WRMtfA)
+
