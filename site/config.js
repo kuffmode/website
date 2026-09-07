@@ -14,25 +14,29 @@ window.SITE_CONFIG = {
     layout: "random",  // "random" | "spring" | "spherical" | "kamada-kawai"
     curveStrength: 0,         // edge curvature toward center: 0 = straight, 1 = max curve
     mode: "light",   // color mode: "light" | "cream" | "dark"
-    grain: 20,        // paper grain overlay opacity: 0–100
+    grain: 5,        // paper grain overlay opacity: 0–100
     blogAsNodes: false,     // show blog posts as clickable graph nodes
   },
 
-  // ── Depth-of-field ─────────────────────────────────────────────
+  // ── Depth-of-field (real lens blur, screen-space) ────────────────
   dof: {
-    nodeBlurMax: 0.4,    // max blur radius on farthest nodes (0 = sharp, ~0.5 = soft)
-    edgeOpacityMin: 0.8,     // opacity of farthest edges (0 = invisible, 1 = no fade)
-    edgeDefocusMax: 0.,     // extra thickness of farthest edges (0 = none, 1 = 2× thick)
+    focus: 450,           // distance from camera that stays sharp (world units); cameraZ (800) = rotation center in focus
+    focusRange: 500,          // world units from focus before blur reaches its max
+    maxBlur: 15,            // blur radius in screen pixels at full defocus (the pyramid goes up to ~32)
+    renderScale: 2,          // supersamples the capture to kill jagged edges (1 = off; clamped to 2 — beyond that is pure cost)
+    frost: 0.2,             // px of uniform softness on everything — the "frosted pane" (0 = razor sharp in focus)
+    grain: 0.05,            // in-render grain, stronger where blurred (0 = off). Prefer this over the CSS paper grain.
   },
 
   // ── Scene / camera ─────────────────────────────────────────────
   scene: {
-    fogNear: 600,           // distance where fog begins (world units)
+    fogNear: 500,           // distance where fog begins (world units)
     fogFar: 1000,          // distance where fog is fully opaque
     cameraZ: 800,           // camera distance from origin
     cameraFov: 45,            // base field-of-view in degrees (before zoom)
     cameraNear: 10,           // near clipping plane
     cameraFar: 3000,          // far clipping plane
+    edgeFadeMin: 1,          // opacity-toward-fog of the farthest edges — atmospheric fade, separate from lens blur (0 = invisible, 1 = no fade)
   },
 
   // ── Node appearance ────────────────────────────────────────────
@@ -40,7 +44,8 @@ window.SITE_CONFIG = {
     baseRadius: 26.4, // base node diameter in world units (12 × 2.2)
     hoverScale: 1.45, // scale multiplier when hovering a node
     fillerScale: 0.78, // scale multiplier for filler (non-clickable) nodes
-    edgeThickness: 1,  // edge tube radius (normal edges)
+    shading: 0.3,      // matte lighting on nodes & edges (0 = flat, 1 = strong) — sells them as solid objects
+    edgeThickness: 2.2,  // edge tube radius (normal edges) — thin tubes dissolve under the frost blur
     hoverEdgeThickness: 2,  // edge tube radius (hovered edge in cut mode)
   },
 

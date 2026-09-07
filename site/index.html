@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kayson Fakhar</title>
+<!-- Deep links like /blog/post load this page from a subpath; keep every
+     relative script/fetch/asset URL anchored to the site root. -->
+<base href="/">
 <link rel="stylesheet" href="colors_and_type.css">
 <style>
   html, body { margin:0; padding:0; height:100%; background: var(--color-paper); overflow:hidden; }
@@ -463,6 +466,15 @@
   body[data-mode="dark"] .kf-navlinks a { color: #f4f4f0; }
   body[data-mode="dark"] .kf-navlinks a.active,
   body[data-mode="dark"] .kf-navlinks a:hover { color: #F53A61; }
+
+  /* ── 404: nodes drift on with no edges, message floats over them ── */
+  .kf-notfound {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    z-index: 34; text-align: center; pointer-events: none; max-width: 32em; padding: 0 24px;
+  }
+  .kf-notfound h1 { font-family: var(--font-display); font-size: clamp(28px, 4vw, 44px); margin: 0.2em 0 0.4em; }
+  .kf-notfound p { font-family: var(--font-mono); font-size: 14px; opacity: 0.7; margin: 0; }
+  .kf-notfound a { pointer-events: auto; cursor: pointer; color: #F53A61; text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -506,14 +518,8 @@
 <!-- Markdown parser -->
 <script src="https://cdn.jsdelivr.net/npm/marked@13/marked.min.js"></script>
 
-<!-- Three.js + Postprocessing -->
+<!-- Three.js (depth-of-field is a hand-written screen-space pass in graph.jsx) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/BokehShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/BokehPass.js"></script>
 
 <!-- Site config (edit config.js to change defaults without touching code) -->
 <script src="config.js"></script>
@@ -536,6 +542,9 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "zoom":          _cfg.zoom          ?? 1.0,
   "curveStrength": _cfg.curveStrength ?? 0
 }/*EDITMODE-END*/;
+
+// Every route base the app can render; anything else is a 404.
+const KNOWN_PAGES = new Set(["home", "about", "research", "cv", "interactive-media", "blog", "monkey", "contact"]);
 
 const NAV_ITEMS = [
   { id: "about",    label: "about" },
@@ -595,9 +604,6 @@ function Nav({ current, onNav, mobileNavOpen, onMobileNavToggle, solid, mode, on
     </>
   );
 }
-
-const LAYOUTS = ["random", "spring"];
-const LAYOUT_LABEL = { "random": "random", "spring": "spring" };
 
 function Explorer({ t, setTweak, hidden, mobileVisible, perturbMode, cutMode, onPerturbClick, onCutToggle, onUncutAll }) {
   const [collapsed, setCollapsed] = React.useState(false);
@@ -666,19 +672,6 @@ function Explorer({ t, setTweak, hidden, mobileVisible, perturbMode, cutMode, on
         </label>
         <div>
           <div className="row" style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 12 }}>
-            <span>layout</span>
-            <span className="val" style={{ fontFamily: "var(--font-mono)", fontSize: 11, opacity: .6 }}>{LAYOUT_LABEL[t.layout]}</span>
-          </div>
-          <div className="kf-seg">
-            {LAYOUTS.map(l => (
-              <button key={l}
-                className={t.layout === l ? "active" : ""}
-                onClick={() => setTweak("layout", l)}>{LAYOUT_LABEL[l]}</button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <div className="row" style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 12 }}>
             <span>actions</span>
             <span className="val" style={{ fontFamily: "var(--font-mono)", fontSize: 10, opacity: .5 }}>
               {perturbMode === "loop" ? "looping" : perturbMode === "kick" ? "kicking" : cutMode ? "cut mode" : "idle"}
@@ -712,7 +705,34 @@ function Explorer({ t, setTweak, hidden, mobileVisible, perturbMode, cutMode, on
 
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
-  const [route, setRoute] = React.useState("home");
+  // Route ⇄ URL: "/cv" ↔ "cv", "/blog/post" ↔ "blog/post", "/research#x" ↔ "research#x".
+  // GitHub Pages serves 404.html for deep links; it stashes the path and
+  // bounces to "/", where we pick it up here.
+  const routeFromUrl = (path, hash) => {
+    const p = path.replace(/^\/+|\/+$/g, "");
+    return (p || "home") + (hash || "");
+  };
+  const [route, setRouteState] = React.useState(() => {
+    let stashed = null;
+    try { stashed = sessionStorage.getItem("kf-redirect"); sessionStorage.removeItem("kf-redirect"); } catch {}
+    if (stashed) {
+      const u = new URL(stashed, location.origin);
+      history.replaceState(null, "", u.pathname + u.hash);
+      return routeFromUrl(u.pathname, u.hash);
+    }
+    return routeFromUrl(location.pathname, location.hash);
+  });
+  const setRoute = (id) => {
+    setRouteState(id);
+    const [p, h] = id.split("#");
+    const url = (p === "home" ? "/" : "/" + p) + (h ? "#" + h : "");
+    if (location.pathname + location.hash !== url) history.pushState(null, "", url);
+  };
+  React.useEffect(() => {
+    const onPop = () => setRouteState(routeFromUrl(location.pathname, location.hash));
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   const [blogPosts, setBlogPosts] = React.useState([]);
 
   React.useEffect(() => {
@@ -804,7 +824,9 @@ function App() {
       monkey: "Anxious Monkey — Kayson Fakhar",
       contact: "Contact — Kayson Fakhar",
     };
-    document.title = labels[route] || labels[route.split("/")[0]] || "Kayson Fakhar";
+    const base = route.split("#")[0].split("/")[0];
+    document.title = !KNOWN_PAGES.has(base) ? "Page not found — Kayson Fakhar"
+      : labels[route] || labels[base] || "Kayson Fakhar";
   }, [route]);
 
   const onNav = (id) => {
@@ -815,11 +837,11 @@ function App() {
     }
     setRoute(id);
   };
-  const aside = route !== "home";
-
   // Parse compound routes like "blog/halftone-brain" or "research#causal-inference-..."
   const [routePath, routeAnchor] = route.split("#");
   const parts = routePath.split("/");
+  const notFound = !KNOWN_PAGES.has(parts[0]);
+  const aside = route !== "home" && !notFound;
   const baseId = aside ? parts[0] : null;
   const subId  = aside && parts.length > 1 ? parts[1] : null;
   const anchor = aside ? (routeAnchor || null) : null;
@@ -857,10 +879,19 @@ function App() {
           perturbTrigger={perturbTrigger}
           perturbLoop={perturbMode === "loop"}
           cutMode={cutMode}
+          hideEdges={notFound}
         />
       </div>
 
-      {!aside && (
+      {notFound && (
+        <div className="kf-notfound" role="alert">
+          <p>▦ 404</p>
+          <h1>Sorry, this page doesn't exist.</h1>
+          <p>The nodes are still here, but nothing connects to <code>/{routePath}</code>. <a onClick={() => onNav("home")}>Take me home</a>.</p>
+        </div>
+      )}
+
+      {!aside && !notFound && (
         <>
           <div className="kf-hint">drag empty space to spin · drag a node to move it · scroll to zoom · click to enter</div>
           <div className="kf-footer">
@@ -875,7 +906,7 @@ function App() {
 
       <Explorer
         t={t} setTweak={setTweak}
-        hidden={aside}
+        hidden={aside || notFound}
         mobileVisible={mobileExplorerOpen}
         perturbMode={perturbMode}
         cutMode={cutMode}

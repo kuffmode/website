@@ -338,6 +338,7 @@ function Graph({
   perturbTrigger = 0,
   perturbLoop = false,
   cutMode = false,
+  hideEdges = false,
 }) {
   const wrapRef = React.useRef(null);
   const tooltipRef = React.useRef(null);
@@ -509,42 +510,308 @@ function Graph({
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
 
+    // --- Frosted-glass depth of field ------------------------------------
+    // 1. The scene renders (supersampled) into sceneRT — colour + depth — over
+    //    an opaque background matching the page, so blur has a real backdrop.
+    // 2. A small uniform gaussian ("frost") softens everything: the pane.
+    // 3. A blur pyramid: 4 progressively half-sized, gaussian-blurred levels.
+    //    Each pixel's colour is weighted by its own circle of confusion before
+    //    blurring, so in-focus objects never smear into blurred neighbours.
+    // 4. Composite picks a fractional pyramid level per pixel from its depth,
+    //    normalises the weighted colour, adds fine grain, writes to screen.
+    // Gaussian pyramids give a smooth, continuous blur — a sparse-tap kernel
+    // shows discrete copies of thin lines, which is what this replaces.
+    const depthTexture = new THREE.DepthTexture();
+    depthTexture.type = THREE.UnsignedShortType;
+    // Half-float targets keep the CoC-weighted colour precise; 8-bit fallback
+    // is guarded in the composite so low weights can't blow up to white.
+    const halfFloatOK = !!(renderer.extensions.get('EXT_color_buffer_float') ||
+                           renderer.extensions.get('EXT_color_buffer_half_float'));
+    const rtOpts = {
+      minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat, depthBuffer: false, stencilBuffer: false,
+      type: halfFloatOK ? THREE.HalfFloatType : THREE.UnsignedByteType,
+    };
+    const sceneRT  = new THREE.WebGLRenderTarget(1, 1, { ...rtOpts, depthTexture, depthBuffer: true });
+    const frostTmp = new THREE.WebGLRenderTarget(1, 1, rtOpts);
+    const sharpRT  = new THREE.WebGLRenderTarget(1, 1, rtOpts);
+    const LEVELS = 4;
+    const pyr = Array.from({ length: LEVELS }, () => ({
+      a: new THREE.WebGLRenderTarget(1, 1, rtOpts),
+      b: new THREE.WebGLRenderTarget(1, 1, rtOpts),
+      texel: new THREE.Vector2(1, 1),
+    }));
+
+    const passVert = `
+      varying vec2 vUv;
+      void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }
+    `;
+    const depthGlsl = `
+      uniform float cameraNear;
+      uniform float cameraFar;
+      uniform float focus;
+      uniform float focusRange;
+      float linearDepth(float z) {
+        float ndc = z * 2.0 - 1.0;
+        return (2.0 * cameraNear * cameraFar) / (cameraFar + cameraNear - ndc * (cameraFar - cameraNear));
+      }
+      float cocOf(float z) {
+        return clamp(abs(linearDepth(z) - focus) / max(focusRange, 0.001), 0.0, 1.0);
+      }
+    `;
+    const depthUniforms = () => ({
+      cameraNear: { value: camera.near },
+      cameraFar:  { value: camera.far },
+      focus:      { value: CFG_DOF.focus ?? 800 },
+      focusRange: { value: CFG_DOF.focusRange ?? 260 },
+    });
+    const passMat = (frag, uniforms) => new THREE.ShaderMaterial({
+      uniforms, vertexShader: passVert, fragmentShader: frag, depthTest: false, depthWrite: false,
+    });
+
+    const copyMat = passMat(`
+      precision highp float;
+      uniform sampler2D tInput;
+      varying vec2 vUv;
+      void main() { gl_FragColor = texture2D(tInput, vUv); }
+    `, { tInput: { value: null } });
+
+    // 9-tap separable gaussian (sigma ≈ 1.75 texels along `dir`).
+    const blurMat = passMat(`
+      precision highp float;
+      uniform sampler2D tInput;
+      uniform vec2 dir;
+      varying vec2 vUv;
+      void main() {
+        vec4 acc = texture2D(tInput, vUv) * 0.2270;
+        acc += (texture2D(tInput, vUv + dir)       + texture2D(tInput, vUv - dir))       * 0.1945;
+        acc += (texture2D(tInput, vUv + dir * 2.0) + texture2D(tInput, vUv - dir * 2.0)) * 0.1216;
+        acc += (texture2D(tInput, vUv + dir * 3.0) + texture2D(tInput, vUv - dir * 3.0)) * 0.0540;
+        acc += (texture2D(tInput, vUv + dir * 4.0) + texture2D(tInput, vUv - dir * 4.0)) * 0.0162;
+        gl_FragColor = acc;
+      }
+    `, { tInput: { value: null }, dir: { value: new THREE.Vector2() } });
+
+    // Weight colour by circle of confusion. The nearest depth in a small
+    // neighbourhood decides the weight so thin in-focus edges don't leak.
+    const prefilterMat = passMat(`
+      precision highp float;
+      uniform sampler2D tColor;
+      uniform sampler2D tDepth;
+      uniform vec2 texel;
+      varying vec2 vUv;
+      ${depthGlsl}
+      void main() {
+        vec3 c = texture2D(tColor, vUv).rgb;
+        float z = texture2D(tDepth, vUv).x;
+        z = min(z, texture2D(tDepth, vUv + texel * vec2(-1.0, -1.0)).x);
+        z = min(z, texture2D(tDepth, vUv + texel * vec2( 1.0, -1.0)).x);
+        z = min(z, texture2D(tDepth, vUv + texel * vec2(-1.0,  1.0)).x);
+        z = min(z, texture2D(tDepth, vUv + texel * vec2( 1.0,  1.0)).x);
+        float w = max(cocOf(z), 0.06);
+        gl_FragColor = vec4(c * w, w);
+      }
+    `, {
+      tColor: { value: sharpRT.texture }, tDepth: { value: depthTexture },
+      texel: { value: new THREE.Vector2() }, ...depthUniforms(),
+    });
+
+    // Pyramid level k has an effective blur radius of roughly R1 * 2^(k-1) px.
+    const R1 = 3.5;
+    const compositeMat = passMat(`
+      precision highp float;
+      uniform sampler2D tSharp;
+      uniform sampler2D tDepth;
+      uniform sampler2D tL1;
+      uniform sampler2D tL2;
+      uniform sampler2D tL3;
+      uniform sampler2D tL4;
+      uniform vec2 resolution;
+      uniform float maxBlur;
+      uniform float grain;
+      uniform float r1;
+      varying vec2 vUv;
+      ${depthGlsl}
+      vec3 fetch(sampler2D t, vec3 fallback) {
+        vec4 s = texture2D(t, vUv);
+        // Ease toward the fallback as the total weight gets small, so a
+        // quantised near-zero weight never divides to a bright fleck.
+        return mix(fallback, s.rgb / max(s.a, 0.001), smoothstep(0.03, 0.12, s.a));
+      }
+      void main() {
+        vec3 l0 = texture2D(tSharp, vUv).rgb;
+        float coc = cocOf(texture2D(tDepth, vUv).x);
+        float r = coc * maxBlur;
+        float lf = r <= r1 ? r / r1 : 1.0 + log2(r / r1);
+        lf = clamp(lf, 0.0, 4.0);
+        vec3 l1 = fetch(tL1, l0);
+        vec3 l2 = fetch(tL2, l1);
+        vec3 l3 = fetch(tL3, l2);
+        vec3 l4 = fetch(tL4, l3);
+        vec3 col;
+        if      (lf < 1.0) col = mix(l0, l1, lf);
+        else if (lf < 2.0) col = mix(l1, l2, lf - 1.0);
+        else if (lf < 3.0) col = mix(l2, l3, lf - 2.0);
+        else               col = mix(l3, l4, lf - 3.0);
+        // Fine static grain, a touch stronger where the image is diffused —
+        // reads as the texture of the glass rather than a flat overlay.
+        float n = fract(sin(dot(floor(vUv * resolution), vec2(12.9898, 78.233))) * 43758.5453);
+        col += (n - 0.5) * grain * (0.5 + 0.5 * min(lf, 1.0));
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `, {
+      tSharp: { value: sharpRT.texture }, tDepth: { value: depthTexture },
+      tL1: { value: pyr[0].a.texture }, tL2: { value: pyr[1].a.texture },
+      tL3: { value: pyr[2].a.texture }, tL4: { value: pyr[3].a.texture },
+      resolution: { value: new THREE.Vector2(1, 1) },
+      maxBlur: { value: CFG_DOF.maxBlur ?? 18 },
+      grain:   { value: CFG_DOF.grain ?? 0.06 },
+      r1:      { value: R1 },
+      ...depthUniforms(),
+    });
+
+    const passScene = new THREE.Scene();
+    const passCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const passQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), copyMat);
+    passQuad.frustumCulled = false;
+    passScene.add(passQuad);
+    const runPass = (mat, target) => {
+      passQuad.material = mat;
+      renderer.setRenderTarget(target);
+      renderer.render(passScene, passCam);
+    };
+
+    const canvasTexel = new THREE.Vector2(1, 1);
+    // Frost is also the supersample resolve filter, so keep a floor of ~0.6px:
+    // below that the 2× capture is only box-filtered and thin diagonal tubes
+    // start to show stair-steps again.
+    const frostK = Math.max(CFG_DOF.frost ?? 1.2, 0.6) / 1.75;
+
+    const renderDof = () => {
+      renderer.setRenderTarget(sceneRT);
+      renderer.render(scene, camera);
+
+      // Frost: uniform softness. Also resolves the supersample to canvas size.
+      blurMat.uniforms.tInput.value = sceneRT.texture;
+      blurMat.uniforms.dir.value.set(canvasTexel.x * frostK, 0);
+      runPass(blurMat, frostTmp);
+      blurMat.uniforms.tInput.value = frostTmp.texture;
+      blurMat.uniforms.dir.value.set(0, canvasTexel.y * frostK);
+      runPass(blurMat, sharpRT);
+
+      for (let i = 0; i < LEVELS; i++) {
+        const L = pyr[i];
+        if (i === 0) {
+          runPass(prefilterMat, L.a);
+        } else {
+          copyMat.uniforms.tInput.value = pyr[i - 1].a.texture;
+          runPass(copyMat, L.a);
+        }
+        blurMat.uniforms.tInput.value = L.a.texture;
+        blurMat.uniforms.dir.value.set(L.texel.x, 0);
+        runPass(blurMat, L.b);
+        blurMat.uniforms.tInput.value = L.b.texture;
+        blurMat.uniforms.dir.value.set(0, L.texel.y);
+        runPass(blurMat, L.a);
+      }
+
+      runPass(compositeMat, null);
+    };
+
+    const resizeDof = () => {
+      const w = container.clientWidth, h = container.clientHeight;
+      const pr = renderer.getPixelRatio();
+      // Supersample the capture: it's an offscreen target, so it gets no MSAA
+      // of its own. Clamped — beyond 2× the cost explodes for no visible gain.
+      const ss = Math.min(2, Math.max(1, CFG_DOF.renderScale ?? 1.5));
+      const W = Math.max(1, Math.round(w * pr)), H = Math.max(1, Math.round(h * pr));
+      sceneRT.setSize(Math.round(W * ss), Math.round(H * ss));
+      frostTmp.setSize(W, H);
+      sharpRT.setSize(W, H);
+      canvasTexel.set(1 / W, 1 / H);
+      prefilterMat.uniforms.texel.value.set(1 / (W * ss), 1 / (H * ss));
+      compositeMat.uniforms.resolution.value.set(W, H);
+      let lw = W, lh = H;
+      for (const L of pyr) {
+        lw = Math.max(1, Math.round(lw / 2));
+        lh = Math.max(1, Math.round(lh / 2));
+        L.a.setSize(lw, lh);
+        L.b.setSize(lw, lh);
+        L.texel.set(1 / lw, 1 / lh);
+      }
+    };
+    resizeDof();
+
+    // The canvas is now opaque, so paint the page's own background behind the
+    // scene — read from CSS so light / cream / dark all match exactly.
+    const bgColor = new THREE.Color();
+    const syncBackground = () => {
+      let el = container, css = "";
+      while (el) {
+        css = getComputedStyle(el).backgroundColor;
+        if (css && css !== "transparent" && !/rgba\([^)]*,\s*0\s*\)/.test(css)) break;
+        el = el.parentElement;
+      }
+      try { bgColor.setStyle(css); }
+      catch { bgColor.setHex(document.body.dataset.mode === "dark" ? 0x0a0a0a : 0xfaf9f5); }
+      scene.background = bgColor;
+      scene.fog.color.copy(bgColor);
+    };
+    syncBackground();
+    const modeObs = new MutationObserver(syncBackground);
+    modeObs.observe(document.body, { attributes: true, attributeFilter: ["data-mode"] });
+
     const sprites = [];
     const spriteGroup = new THREE.Group();
     scene.add(spriteGroup);
 
     const maxInstances = 12000;
-    const baseCylGeo = new THREE.CylinderGeometry(1, 1, 1, 6, 1, false);
+    // 12 radial segments: round enough that the shading below reads as a
+    // tube rather than a faceted prism.
+    const baseCylGeo = new THREE.CylinderGeometry(1, 1, 1, 12, 1, false);
     baseCylGeo.translate(0, 0.5, 0);
 
-    // --- Edge depth-of-field shaders ---
+    // --- Edge shaders ---
     // Fully explicit GLSL — no #include chunks — for maximum compatibility
     const edgeVertexShader = `
       attribute float instanceOpacity;
       varying float vOpacity;
       varying float vFogDepth;
+      varying vec3 vNormal;
       void main() {
         vOpacity = instanceOpacity;
         vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
         gl_Position = projectionMatrix * mvPosition;
         vFogDepth = -mvPosition.z;
+        // Instance scale is per-axis and cylinder normals are axis-aligned in
+        // local space, so a plain mat3 transform + normalize is exact here.
+        vNormal = normalize(normalMatrix * mat3(instanceMatrix) * normal);
       }
     `;
     const edgeFragmentShader = `
       precision highp float;
       uniform vec3 color;
       uniform float baseOpacity;
+      uniform float shading;
       uniform vec3 fogColor;
       uniform float fogNear;
       uniform float fogFar;
       varying float vOpacity;
       varying float vFogDepth;
+      varying vec3 vNormal;
       void main() {
+        // Soft matte lighting from the upper left: lit side lifts toward
+        // white, unlit side sinks toward black, so it works on either theme.
+        vec3 L = normalize(vec3(-0.45, 0.7, 0.55));
+        float lam = max(dot(normalize(vNormal), L), 0.0);
+        vec3 c = color;
+        c = mix(c, vec3(1.0), shading * 0.9 * lam);
+        c = mix(c, vec3(0.0), shading * 0.8 * (1.0 - lam));
         float alpha = baseOpacity * vOpacity;
         // Mix color toward fog/background instead of using transparency
         // so edges stay opaque and write to depth buffer correctly
         float fogFactor = smoothstep(fogNear, fogFar, vFogDepth);
-        vec3 faded = mix(fogColor, color, alpha);
+        vec3 faded = mix(fogColor, c, alpha);
         gl_FragColor = vec4(mix(faded, fogColor, fogFactor), 1.0);
       }
     `;
@@ -552,7 +819,11 @@ function Graph({
     const makeEdgeMat = (hex, opacity) => new THREE.ShaderMaterial({
       uniforms: THREE.UniformsUtils.merge([
         THREE.UniformsLib['fog'],
-        { color: { value: new THREE.Color(hex) }, baseOpacity: { value: opacity } }
+        {
+          color: { value: new THREE.Color(hex) },
+          baseOpacity: { value: opacity },
+          shading: { value: CFG_NODES.shading ?? 0.3 },
+        }
       ]),
       vertexShader: edgeVertexShader,
       fragmentShader: edgeFragmentShader,
@@ -599,18 +870,25 @@ function Graph({
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
+      resizeDof();
     });
     ro.observe(container);
 
     threeRef.current = {
       scene, camera, renderer, spriteGroup, sprites,
       regTubes, cutTubes, hoverTubes, regMat, cutMat, hoverMat, maxInstances,
-      regGeo, cutGeo, hoverGeo
+      regGeo, cutGeo, hoverGeo,
+      renderDof, syncBackground,
     };
 
     return () => {
       ro.disconnect();
+      modeObs.disconnect();
       container.removeChild(renderer.domElement);
+      for (const rt of [sceneRT, frostTmp, sharpRT, ...pyr.flatMap(L => [L.a, L.b])]) rt.dispose();
+      depthTexture.dispose();
+      for (const m of [copyMat, blurMat, prefilterMat, compositeMat]) m.dispose();
+      passQuad.geometry.dispose();
       renderer.dispose();
     };
   }, []);
@@ -618,8 +896,8 @@ function Graph({
   React.useEffect(() => {
     const t = threeRef.current;
     if (!t) return;
-    
-    t.scene.fog.color.setHex(dark ? 0x0a0a0a : 0xfaf9f5);
+
+    t.syncBackground();
     t.regMat.uniforms.color.value.setHex(dark ? 0xf4f4f0 : 0x000000);
     t.cutMat.uniforms.color.value.setHex(dark ? 0xf4f4f0 : 0x000000);
   }, [dark]);
@@ -631,11 +909,19 @@ function Graph({
 
     const vertexShader = `
       varying vec2 vUv;
+      varying float vCenterZ;
+      varying float vRadius;
+      varying vec2 vProjZ;
       #include <fog_pars_vertex>
       void main() {
         vUv = uv;
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
         gl_Position = projectionMatrix * mvPosition;
+        // For the sphere depth trick below: view-space centre, world radius
+        // (the sprite is scaled to its diameter), and the projection's z row.
+        vCenterZ = (modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).z;
+        vRadius = length(modelViewMatrix[0].xyz) * 0.5;
+        vProjZ = vec2(projectionMatrix[2][2], projectionMatrix[3][2]);
         #include <fog_vertex>
       }
     `;
@@ -643,21 +929,39 @@ function Graph({
     const fragmentShader = `
       uniform vec3 color;
       uniform float opacity;
-      uniform float blur;
+      uniform float shading;
       varying vec2 vUv;
+      varying float vCenterZ;
+      varying float vRadius;
+      varying vec2 vProjZ;
       #include <fog_pars_fragment>
 
       void main() {
-        float d = distance(vUv, vec2(0.5));
-        if (d > 0.5) discard;
-        
-        float aa = 0.02;
-        float edge0 = max(0.0, 0.5 - blur - aa);
-        float edge1 = 0.5;
-        float alpha = 1.0 - smoothstep(edge0, edge1, d);
-        
-        gl_FragColor = vec4(color, opacity * alpha);
-        
+        vec2 p = (vUv - 0.5) * 2.0;
+        float r2 = dot(p, p);
+        if (r2 > 1.0) discard;
+
+        float alpha = 1.0 - smoothstep(0.92, 1.0, r2);
+
+        // Shade the disc as a sphere (billboards face the camera, so view-space
+        // lighting is exact) with the same light as the edge tubes.
+        vec3 n = vec3(p.x, p.y, sqrt(max(0.0, 1.0 - r2)));
+
+        // Write the depth of the sphere's surface, not the flat billboard, so
+        // tubes entering the node are hidden inside it like a solid object.
+        #if defined(GL_EXT_frag_depth) || __VERSION__ == 300
+          float zs = vCenterZ + vRadius * n.z;
+          float ndcZ = (vProjZ.x * zs + vProjZ.y) / (-zs);
+          gl_FragDepthEXT = ndcZ * 0.5 + 0.5;
+        #endif
+        vec3 L = normalize(vec3(-0.45, 0.7, 0.55));
+        float lam = max(dot(n, L), 0.0);
+        vec3 c = color;
+        c = mix(c, vec3(1.0), shading * 0.9 * lam);
+        c = mix(c, vec3(0.0), shading * 0.8 * (1.0 - lam));
+
+        gl_FragColor = vec4(c, opacity * alpha);
+
         #include <fog_fragment>
       }
     `;
@@ -670,14 +974,15 @@ function Graph({
             {
                 color: { value: new THREE.Color() },
                 opacity: { value: 1.0 },
-                blur: { value: 0.0 }
+                shading: { value: CFG_NODES.shading ?? 0.3 }
             }
         ]),
         vertexShader,
         fragmentShader,
         transparent: true,
         depthWrite: false,
-        fog: true
+        fog: true,
+        extensions: { fragDepth: true }
       });
       const s = new THREE.Mesh(geo, mat);
       // Ensure nodes render AFTER edges
@@ -839,17 +1144,16 @@ function Graph({
               * (!isClickable ? (CFG_NODES.fillerScale ?? 0.78) : 1.0);
             sprite.scale.set(baseR, baseR, 1);
 
-            const depthT = (v[2] - minZ) / zRange;
-            const blurAmt = (1 - depthT) * (CFG_DOF.nodeBlurMax ?? 0.585);
-            
             // Keep opacity 1.0 unless cut so the core is opaque and occludes edges.
             // The shader's Fog injection will handle fading the color into the background!
             const opacity = isCut ? 0.2 : 1.0;
 
             sprite.material.uniforms.color.value.setHex(fill);
             sprite.material.uniforms.opacity.value = opacity;
-            sprite.material.uniforms.blur.value = blurAmt;
-            
+            // Cut nodes are mostly transparent — don't let them write depth,
+            // or the real-DOF pass would read them as solid and misjudge focus.
+            sprite.material.depthWrite = !isCut;
+
             projected.push({
                 i, n: graph.nodes[i],
                 px: v[0], py: v[1], z: v[2],
@@ -876,19 +1180,18 @@ function Graph({
           const dist = Math.hypot(dx, dy, dz);
           if (dist < 0.001) return;
 
-          // Depth-of-field: compute opacity & defocus thickness from midpoint z
+          // Atmospheric fade toward the fog color by midpoint depth — a mild,
+          // separate cue from the real lens blur applied in the DOF pass.
           const midZ = (pA[2] + pB[2]) / 2;
           const edgeDepthT = zRange > 1 ? (midZ - minZ) / zRange : 1; // 0 = far, 1 = close
-          const _opMin = CFG_DOF.edgeOpacityMin ?? 0.03;
+          const _opMin = CFG_SCENE.edgeFadeMin ?? 0.8;
           const edgeOpacity = _opMin + edgeDepthT * (1 - _opMin);
-          const defocusScale = 1.0 + (1 - edgeDepthT) * (CFG_DOF.edgeDefocusMax ?? 0.91);
 
           dummy.position.set(pA[0], pA[1], pA[2]);
           dir.set(dx/dist, dy/dist, dz/dist);
           dummy.quaternion.setFromUnitVectors(up, dir);
-          
-          const baseRadius = (type === 2 ? (CFG_NODES.hoverEdgeThickness ?? 1.5) : (CFG_NODES.edgeThickness ?? 0.8)) * zoom;
-          const radius = baseRadius * defocusScale;
+
+          const radius = (type === 2 ? (CFG_NODES.hoverEdgeThickness ?? 1.5) : (CFG_NODES.edgeThickness ?? 0.8)) * zoom;
           dummy.scale.set(radius, dist, radius);
           dummy.updateMatrix();
 
@@ -904,7 +1207,7 @@ function Graph({
           }
       };
 
-      for (let ei = 0; ei < graph.edges.length; ei++) {
+      for (let ei = 0; !hideEdges && ei < graph.edges.length; ei++) {
         const [a, b] = graph.edges[ei];
         if (!projected[a] || !projected[b]) continue;
         
@@ -980,12 +1283,12 @@ function Graph({
 
       s.projected = projected;
 
-      t.renderer.render(t.scene, t.camera);
+      t.renderDof();
     };
     
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
-  }, [graph, dark, zoom, speed, aside, hover, hoverEdge, cutMode, kickSER, stepSER, perturbLoop, curveStrength]);
+  }, [graph, dark, zoom, speed, aside, hover, hoverEdge, cutMode, kickSER, stepSER, perturbLoop, curveStrength, hideEdges]);
 
   React.useEffect(() => {
     const el = wrapRef.current;

@@ -200,11 +200,26 @@ function Page({ id, sub, anchor, onNav }) {
           </div>
         )}
 
-        {/* Body — rendered markdown */}
+        {/* Body — rendered markdown. Links are plain <a>s from marked:
+            files (PDFs) and external sites open in a new tab so the app
+            survives; links to other posts' .md files route in-app. */}
         <div
           ref={proseRef}
           className="kf-prose"
           dangerouslySetInnerHTML={{ __html: html }}
+          onClick={(e) => {
+            const a = e.target.closest && e.target.closest('a[href]');
+            if (!a) return;
+            const href = a.getAttribute('href');
+            const mdPost = href.match(/([^/]+)\.md$/);
+            if (mdPost && !/^https?:/.test(href)) {
+              e.preventDefault();
+              onNav('blog/' + mdPost[1]);
+            } else if (/^https?:/.test(href) || /\.(pdf|zip|png|jpe?g)$/i.test(href)) {
+              e.preventDefault();
+              window.open(a.href, '_blank', 'noopener,noreferrer');
+            }
+          }}
         />
 
         {/* Blog index: list of posts loaded from blog-posts.json */}

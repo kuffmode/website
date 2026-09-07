@@ -5,17 +5,17 @@ title: Hi, I'm Kayson. I study resiliency of brains & AI models against differen
 ---
 
 ## In brief
-Currently, I'm a post-doctoral researcher at the 4D Group, based at the University of Cambridge. Broadly speaking, my focus is on what complex networks (such as brains and AI models) and their constituting nodes do against perturbations. Said differently, I study resiliency in brain networks (and AI models) across structure, dynamics, and function. I use a combination of computational modeling, graph-theoretic analysis, game theory, and systematic perturbation experiments to then piece together a mechanistic understanding of how complex networks maintain stable function in the face of adversity.
+Currently, I'm a post-doctoral researcher at the 4D Group, based at the University of Cambridge. Broadly speaking, my focus is on what complex networks (such as brains and AI models) and their constituent nodes do against perturbations. Said differently, I study resiliency in brain networks (and AI models) across structure, dynamics, and function. I use a combination of computational modeling, graph-theoretic analysis, game theory, and systematic perturbation experiments to then piece together a mechanistic understanding of how complex networks maintain stable function in the face of adversity.
 ___
 ## In detail
 
 ### Bridging Structure, Dynamics, and Function in the Brain Through Perturbations
 
-My research sits at the intersection of cognitive and computational neuroscience. Driven by a long-standing desire to understand the root causes of human behavior and neuropsychiatric conditions, I use computational methods to uncover how the structural and functional complexities of the brain link to each other. Specifically, I apply tools from network science, causal inference, dynamical systems theory, and game theory to study the brain across multiple levels: its physical architecture, its communication landscape, and the behaviors it ultimately produces (or fails to do).
+My research sits at the intersection of cognitive and computational neuroscience. Driven by a long-standing desire to understand the root causes of human behavior and neuropsychiatric conditions, I use computational methods to uncover how the structural and functional complexities of the brain link to each other. Specifically, I apply tools from network science, causal inference, dynamical systems theory, and game theory to study the brain across multiple levels: its physical architecture, its communication landscape, and the behaviors it ultimately produces (or fails to).
 
 ### The Search for a Rigorous Foundation for Causal Inference
 
-I completed my PhD in Computational Neuroscience at the University-Medical Centre Hamburg. During these five years, I drowned myself in learning and developing methodologies required to understand complex (neural) systems, exploring everything from graph theory to network communication theory to game theory to dynamical systems theory to information theory to neuromorphic computing (expecting another _theory_, didn't you?) and explainable AI. My thesis focused on the very core of modern science, i.e., causality, by developing a game-theoretical framework for axiomatic causal inference, with applications in artificial neural networks and large-scale models of brain dynamics.
+I completed my PhD in Computational Neuroscience at the University Medical Centre Hamburg. During these five years, I drowned myself in learning and developing methodologies required to understand complex (neural) systems, exploring everything from graph theory to network communication theory to game theory to dynamical systems theory to information theory to neuromorphic computing (expecting another _theory_, didn't you?) and explainable AI. My thesis focused on the very core of modern science, i.e., causality, by developing a game-theoretical framework for axiomatic causal inference, with applications in artificial neural networks and large-scale models of brain dynamics.
 
 ### From Behavior to Computation
 
@@ -23,7 +23,7 @@ My pivot toward computational methods began during my MSc in Systems and Cogniti
 
 ### Foundations in Clinical Psychology
 
-My academic journey started with a BSc in Clinical Psychology in Tehran, Iran (can't recommend). Spending four years studying psychiatric taxonomies and the nuances of differential diagnosis gave me a deep appreciation for the complexities of mind. However, it also highlighted the often subjective nature of clinical psychology, which ultimately drove me away and towards a more empirical, mechanistic realms of neuropsychology and computational neuroscience.
+My academic journey started with a BSc in Clinical Psychology in Tehran, Iran (can't recommend). Spending four years studying psychiatric taxonomies and the nuances of differential diagnosis gave me a deep appreciation for the complexities of the mind. However, it also highlighted the often subjective nature of clinical psychology, which ultimately drove me away and towards the more empirical, mechanistic realms of neuropsychology and computational neuroscience.
 
 ### Beyond the Lab
 
