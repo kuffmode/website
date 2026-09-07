@@ -29,24 +29,19 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Install Python dependencies
-        run: pip install scholarly
-
       - name: Regenerate blog index
-        run: python generate-blog-index.py
-
-      - name: Update publications from Google Scholar
-        run: python update-publications.py
+        run: python generate_blog_index.py
+        working-directory: site
 
       - name: Commit updated content
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add site/content/blog-posts.json site/content/publications.json site/content/cv.md
+          git add site/content/blog-posts.json
           if git diff --cached --quiet; then
             echo "No changes to commit, skipping."
           else
-            git commit -m "chore: update blog index and publications [skip ci]"
+            git commit -m "chore: update blog index [skip ci]"
             git pull --rebase
             git push
           fi
