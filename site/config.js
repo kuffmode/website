@@ -8,24 +8,29 @@ window.SITE_CONFIG = {
   // ── Graph defaults (initial values before user interacts) ──────
   defaults: {
     nodeCount: 13,        // total nodes in the network (including fillers)
-    density: 0.5,       // edge density: 0 = sparse, 1 = dense
+    density: 0.3,       // edge density: 0 = sparse, 1 = dense
     zoom: 0.7,       // camera zoom multiplier
-    speed: 2.9,       // idle spin speed multiplier
+    speed: 1,       // idle spin speed multiplier
     layout: "random",  // "random" | "spring" | "spherical" | "kamada-kawai"
     curveStrength: 0,         // edge curvature toward center: 0 = straight, 1 = max curve
     mode: "light",   // color mode: "light" | "cream" | "dark"
-    grain: 5,        // paper grain overlay opacity: 0–100
+    grain: 0,        // CSS page grain overlay opacity: 0–100 (0 = use in-render ISO 800 film grain)
     blogAsNodes: false,     // show blog posts as clickable graph nodes
   },
 
-  // ── Depth-of-field (real lens blur, screen-space) ────────────────
+  // ── Depth-of-field & optical film look (50mm f/1.8, ISO 800) ─────
   dof: {
-    focus: 450,           // distance from camera that stays sharp (world units); cameraZ (800) = rotation center in focus
-    focusRange: 500,          // world units from focus before blur reaches its max
-    maxBlur: 15,            // blur radius in screen pixels at full defocus (the pyramid goes up to ~32)
-    renderScale: 2,          // supersamples the capture to kill jagged edges (1 = off; clamped to 2 — beyond that is pure cost)
-    frost: 0.2,             // px of uniform softness on everything — the "frosted pane" (0 = razor sharp in focus)
-    grain: 0.05,            // in-render grain, stronger where blurred (0 = off). Prefer this over the CSS paper grain.
+    focus: 520,             // focal plane distance from camera (world units); front of graph sits razor sharp
+    focusRange: 520,        // distance beyond focus where blur reaches maxBlur (hyperbolic thin-lens CoC)
+    maxBlur: 18,            // max circular aperture bokeh radius in screen pixels
+    renderScale: 2,         // supersamples the capture to kill jagged edges (1 = off; clamped to 2)
+    bokehRing: 0,        // subtle 50mm f/1.8 spherical-aberration bokeh rim character (0 = flat disc)
+    chromaticAberration: 0, // subtle lateral glass CA at frame corners (px; 0 = off)
+    vignette: 0.8,         // natural f/1.8 cos^4 corner falloff (automatically gentled on light backgrounds)
+    grain: 0.085,           // ISO 800 film grain intensity (H&D midtone-weighted; 0 = off)
+    grainSize: 0.5,        // physical silver-halide clump size in CSS pixels
+    grainChroma: 0.22,      // colour-film dye-cloud channel separation (0 = B&W, ~0.22 = colour 800)
+    grainFps: 24,           // film-gate grain cadence in fps (0 = static still frame)
   },
 
   // ── Scene / camera ─────────────────────────────────────────────

@@ -510,21 +510,20 @@ function Graph({
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
 
-    // --- Frosted-glass depth of field ------------------------------------
-    // 1. The scene renders (supersampled) into sceneRT — colour + depth — over
-    //    an opaque background matching the page, so blur has a real backdrop.
-    // 2. A small uniform gaussian ("frost") softens everything: the pane.
-    // 3. A blur pyramid: 4 progressively half-sized, gaussian-blurred levels.
-    //    Each pixel's colour is weighted by its own circle of confusion before
-    //    blurring, so in-focus objects never smear into blurred neighbours.
-    // 4. Composite picks a fractional pyramid level per pixel from its depth,
-    //    normalises the weighted colour, adds fine grain, writes to screen.
-    // Gaussian pyramids give a smooth, continuous blur — a sparse-tap kernel
-    // shows discrete copies of thin lines, which is what this replaces.
+    // --- Analogue 50mm f/1.8 depth of field + ISO 800 film grain ---------
+    // 1. Render scene (2× supersampled) into sceneRT (colour + depth).
+    // 2. Crisp 4-tap resolve into sharpRT, packing thin-lens hyperbolic
+    //    signed CoC into alpha (negative = foreground, positive = background).
+    // 3. Build a 4-level CoC-weighted blur pyramid (keeps thin blurred edges
+    //    silky continuous without sharp objects leaking) + a tiny 1/4-res
+    //    near-field CoC dilation map so blurry foreground nodes halo over
+    //    sharp objects behind them.
+    // 4. Composite performs a 24-tap Vogel-spiral circular aperture bokeh
+    //    gather (IGN-rotated, mip-matched, spherical-aberration rim), subtle
+    //    50mm lateral CA & cos^4 vignetting, and 2-octave clumped Gaussian
+    //    ISO 800 film grain with H&D luminance response & subtle dye chroma.
     const depthTexture = new THREE.DepthTexture();
     depthTexture.type = THREE.UnsignedShortType;
-    // Half-float targets keep the CoC-weighted colour precise; 8-bit fallback
-    // is guarded in the composite so low weights can't blow up to white.
     const halfFloatOK = !!(renderer.extensions.get('EXT_color_buffer_float') ||
                            renderer.extensions.get('EXT_color_buffer_half_float'));
     const rtOpts = {
@@ -532,9 +531,11 @@ function Graph({
       format: THREE.RGBAFormat, depthBuffer: false, stencilBuffer: false,
       type: halfFloatOK ? THREE.HalfFloatType : THREE.UnsignedByteType,
     };
-    const sceneRT  = new THREE.WebGLRenderTarget(1, 1, { ...rtOpts, depthTexture, depthBuffer: true });
-    const frostTmp = new THREE.WebGLRenderTarget(1, 1, rtOpts);
-    const sharpRT  = new THREE.WebGLRenderTarget(1, 1, rtOpts);
+    const sceneRT = new THREE.WebGLRenderTarget(1, 1, { ...rtOpts, depthTexture, depthBuffer: true });
+    const sharpRT = new THREE.WebGLRenderTarget(1, 1, rtOpts);
+    const nearA   = new THREE.WebGLRenderTarget(1, 1, rtOpts);
+    const nearB   = new THREE.WebGLRenderTarget(1, 1, rtOpts);
+    const nearTexel = new THREE.Vector2(1, 1);
     const LEVELS = 4;
     const pyr = Array.from({ length: LEVELS }, () => ({
       a: new THREE.WebGLRenderTarget(1, 1, rtOpts),
@@ -555,15 +556,19 @@ function Graph({
         float ndc = z * 2.0 - 1.0;
         return (2.0 * cameraNear * cameraFar) / (cameraFar + cameraNear - ndc * (cameraFar - cameraNear));
       }
-      float cocOf(float z) {
-        return clamp(abs(linearDepth(z) - focus) / max(focusRange, 0.001), 0.0, 1.0);
+      // Hyperbolic thin-lens signed CoC: <0 = foreground (blurs faster per unit
+      // distance, like real 50mm f/1.8 glass), >0 = background.
+      float signedCocOf(float z) {
+        float d = linearDepth(z);
+        float raw = ((d - focus) / max(d, 1.0)) * ((focus + focusRange) / max(focusRange, 1.0));
+        return clamp(raw, -1.0, 1.0);
       }
     `;
     const depthUniforms = () => ({
       cameraNear: { value: camera.near },
       cameraFar:  { value: camera.far },
-      focus:      { value: CFG_DOF.focus ?? 800 },
-      focusRange: { value: CFG_DOF.focusRange ?? 260 },
+      focus:      { value: CFG_DOF.focus ?? 520 },
+      focusRange: { value: CFG_DOF.focusRange ?? 520 },
     });
     const passMat = (frag, uniforms) => new THREE.ShaderMaterial({
       uniforms, vertexShader: passVert, fragmentShader: frag, depthTest: false, depthWrite: false,
@@ -576,25 +581,9 @@ function Graph({
       void main() { gl_FragColor = texture2D(tInput, vUv); }
     `, { tInput: { value: null } });
 
-    // 9-tap separable gaussian (sigma ≈ 1.75 texels along `dir`).
-    const blurMat = passMat(`
-      precision highp float;
-      uniform sampler2D tInput;
-      uniform vec2 dir;
-      varying vec2 vUv;
-      void main() {
-        vec4 acc = texture2D(tInput, vUv) * 0.2270;
-        acc += (texture2D(tInput, vUv + dir)       + texture2D(tInput, vUv - dir))       * 0.1945;
-        acc += (texture2D(tInput, vUv + dir * 2.0) + texture2D(tInput, vUv - dir * 2.0)) * 0.1216;
-        acc += (texture2D(tInput, vUv + dir * 3.0) + texture2D(tInput, vUv - dir * 3.0)) * 0.0540;
-        acc += (texture2D(tInput, vUv + dir * 4.0) + texture2D(tInput, vUv - dir * 4.0)) * 0.0162;
-        gl_FragColor = acc;
-      }
-    `, { tInput: { value: null }, dir: { value: new THREE.Vector2() } });
-
-    // Weight colour by circle of confusion. The nearest depth in a small
-    // neighbourhood decides the weight so thin in-focus edges don't leak.
-    const prefilterMat = passMat(`
+    // Crisp 4-tap rotated-grid supersample resolve (no frosted blur on focal plane).
+    // Packs encoded signed CoC (0.5 + 0.5 * coc) in alpha for 8-bit & half-float safety.
+    const resolveMat = passMat(`
       precision highp float;
       uniform sampler2D tColor;
       uniform sampler2D tDepth;
@@ -602,72 +591,325 @@ function Graph({
       varying vec2 vUv;
       ${depthGlsl}
       void main() {
-        vec3 c = texture2D(tColor, vUv).rgb;
-        float z = texture2D(tDepth, vUv).x;
-        z = min(z, texture2D(tDepth, vUv + texel * vec2(-1.0, -1.0)).x);
-        z = min(z, texture2D(tDepth, vUv + texel * vec2( 1.0, -1.0)).x);
-        z = min(z, texture2D(tDepth, vUv + texel * vec2(-1.0,  1.0)).x);
-        z = min(z, texture2D(tDepth, vUv + texel * vec2( 1.0,  1.0)).x);
-        float w = max(cocOf(z), 0.06);
-        gl_FragColor = vec4(c * w, w);
+        vec2 o1 = texel * vec2( 0.25, -0.75);
+        vec2 o2 = texel * vec2(-0.75, -0.25);
+        vec2 o3 = texel * vec2(-0.25,  0.75);
+        vec2 o4 = texel * vec2( 0.75,  0.25);
+        vec3 c = (
+          texture2D(tColor, vUv + o1).rgb +
+          texture2D(tColor, vUv + o2).rgb +
+          texture2D(tColor, vUv + o3).rgb +
+          texture2D(tColor, vUv + o4).rgb
+        ) * 0.25;
+        float z = min(
+          min(texture2D(tDepth, vUv + o1).x, texture2D(tDepth, vUv + o2).x),
+          min(texture2D(tDepth, vUv + o3).x, texture2D(tDepth, vUv + o4).x)
+        );
+        float coc = signedCocOf(z);
+        gl_FragColor = vec4(c, coc * 0.5 + 0.5);
       }
     `, {
-      tColor: { value: sharpRT.texture }, tDepth: { value: depthTexture },
+      tColor: { value: sceneRT.texture }, tDepth: { value: depthTexture },
       texel: { value: new THREE.Vector2() }, ...depthUniforms(),
     });
 
-    // Pyramid level k has an effective blur radius of roughly R1 * 2^(k-1) px.
-    const R1 = 3.5;
+    // 7-tap separable Gaussian for smooth mip pyramid construction.
+    const blurMat = passMat(`
+      precision highp float;
+      uniform sampler2D tInput;
+      uniform vec2 dir;
+      varying vec2 vUv;
+      void main() {
+        vec4 acc = texture2D(tInput, vUv) * 0.2830;
+        acc += (texture2D(tInput, vUv + dir)       + texture2D(tInput, vUv - dir))       * 0.2194;
+        acc += (texture2D(tInput, vUv + dir * 2.0) + texture2D(tInput, vUv - dir * 2.0)) * 0.1079;
+        acc += (texture2D(tInput, vUv + dir * 3.0) + texture2D(tInput, vUv - dir * 3.0)) * 0.0312;
+        gl_FragColor = acc;
+      }
+    `, { tInput: { value: null }, dir: { value: new THREE.Vector2() } });
+
+    // Weight colour by |CoC| so sharp focal-plane geometry never bleeds into
+    // blurred mip levels, while thin blurred edges remain continuous.
+    const prefilterMat = passMat(`
+      precision highp float;
+      uniform sampler2D tSharp;
+      uniform vec2 texel;
+      varying vec2 vUv;
+      void main() {
+        vec4 s0 = texture2D(tSharp, vUv);
+        float c0 = abs(s0.a * 2.0 - 1.0);
+        float c1 = abs(texture2D(tSharp, vUv + texel * vec2(-1.0, -1.0)).a * 2.0 - 1.0);
+        float c2 = abs(texture2D(tSharp, vUv + texel * vec2( 1.0, -1.0)).a * 2.0 - 1.0);
+        float c3 = abs(texture2D(tSharp, vUv + texel * vec2(-1.0,  1.0)).a * 2.0 - 1.0);
+        float c4 = abs(texture2D(tSharp, vUv + texel * vec2( 1.0,  1.0)).a * 2.0 - 1.0);
+        float w = max(min(c0, min(min(c1, c2), min(c3, c4))), 0.04);
+        gl_FragColor = vec4(s0.rgb * w, w);
+      }
+    `, {
+      tSharp: { value: sharpRT.texture },
+      texel: { value: new THREE.Vector2() },
+    });
+
+    // Extract foreground CoC (max(0, -signedCoC)) into 1/4-res target.
+    const nearExtractMat = passMat(`
+      precision highp float;
+      uniform sampler2D tSharp;
+      uniform vec2 texel;
+      varying vec2 vUv;
+      float fgOf(vec2 uv) {
+        return max(0.0, -(texture2D(tSharp, uv).a * 2.0 - 1.0));
+      }
+      void main() {
+        float m = fgOf(vUv);
+        m = max(m, fgOf(vUv + texel * vec2(-1.0, -1.0)));
+        m = max(m, fgOf(vUv + texel * vec2( 1.0, -1.0)));
+        m = max(m, fgOf(vUv + texel * vec2(-1.0,  1.0)));
+        m = max(m, fgOf(vUv + texel * vec2( 1.0,  1.0)));
+        gl_FragColor = vec4(m, 0.0, 0.0, 1.0);
+      }
+    `, {
+      tSharp: { value: sharpRT.texture },
+      texel: { value: new THREE.Vector2() },
+    });
+
+    // Separable max-dilation for foreground CoC reach (ensures near-field bokeh
+    // smoothly halos over sharp objects behind it).
+    const nearDilateMat = passMat(`
+      precision highp float;
+      uniform sampler2D tInput;
+      uniform vec2 dir;
+      varying vec2 vUv;
+      void main() {
+        float m = texture2D(tInput, vUv).r;
+        m = max(m, texture2D(tInput, vUv + dir).r);
+        m = max(m, texture2D(tInput, vUv - dir).r);
+        m = max(m, texture2D(tInput, vUv + dir * 2.0).r);
+        m = max(m, texture2D(tInput, vUv - dir * 2.0).r);
+        m = max(m, texture2D(tInput, vUv + dir * 3.0).r);
+        m = max(m, texture2D(tInput, vUv - dir * 3.0).r);
+        gl_FragColor = vec4(m, 0.0, 0.0, 1.0);
+      }
+    `, { tInput: { value: null }, dir: { value: new THREE.Vector2() } });
+
     const compositeMat = passMat(`
       precision highp float;
       uniform sampler2D tSharp;
-      uniform sampler2D tDepth;
+      uniform sampler2D tNear;
       uniform sampler2D tL1;
       uniform sampler2D tL2;
       uniform sampler2D tL3;
       uniform sampler2D tL4;
       uniform vec2 resolution;
+      uniform float dpr;
+      uniform float uTime;
       uniform float maxBlur;
+      uniform float bokehRing;
+      uniform float caStrength;
+      uniform float vignette;
+      uniform float isDark;
       uniform float grain;
-      uniform float r1;
+      uniform float grainSize;
+      uniform float grainChroma;
+      uniform float grainFps;
       varying vec2 vUv;
-      ${depthGlsl}
-      vec3 fetch(sampler2D t, vec3 fallback) {
-        vec4 s = texture2D(t, vUv);
-        // Ease toward the fallback as the total weight gets small, so a
-        // quantised near-zero weight never divides to a bright fleck.
+
+      const float GOLDEN_ANGLE = 2.39996323;
+
+      // Interleaved Gradient Noise (Jimenez 2014) for clean per-pixel bokeh rotation
+      float ign(vec2 p) {
+        return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715))));
+      }
+
+      // Artifact-free 2D -> 3D hash (Dave Hoskins — avoids GPU sin() striping)
+      vec3 hash32(vec2 p) {
+        vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+        p3 += dot(p3, p3.yxz + 33.33);
+        return fract((p3.xxy + p3.yzz) * p3.zyx) - 0.5;
+      }
+
+      // Smooth cubic-interpolated value noise: 4 random corners yield organic
+      // Gaussian-like silver-halide grain clumps rather than 1px digital static.
+      vec3 grainNoise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        vec3 a = hash32(i);
+        vec3 b = hash32(i + vec2(1.0, 0.0));
+        vec3 c = hash32(i + vec2(0.0, 1.0));
+        vec3 d = hash32(i + vec2(1.0, 1.0));
+        return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+      }
+
+      vec3 fetchPyr(sampler2D t, vec2 uv, vec3 fallback) {
+        vec4 s = texture2D(t, uv);
         return mix(fallback, s.rgb / max(s.a, 0.001), smoothstep(0.03, 0.12, s.a));
       }
+
+      vec3 sampleMip(vec2 uv, float mip, vec3 sharpCol) {
+        if (mip <= 0.02) return sharpCol;
+        if (mip < 1.0) {
+          vec3 l1 = fetchPyr(tL1, uv, sharpCol);
+          return mix(sharpCol, l1, mip);
+        }
+        if (mip < 2.0) {
+          vec3 l1 = fetchPyr(tL1, uv, sharpCol);
+          vec3 l2 = fetchPyr(tL2, uv, l1);
+          return mix(l1, l2, mip - 1.0);
+        }
+        if (mip < 3.0) {
+          vec3 l2 = fetchPyr(tL2, uv, sharpCol);
+          vec3 l3 = fetchPyr(tL3, uv, l2);
+          return mix(l2, l3, mip - 2.0);
+        }
+        vec3 l3 = fetchPyr(tL3, uv, sharpCol);
+        vec3 l4 = fetchPyr(tL4, uv, l3);
+        return mix(l3, l4, clamp(mip - 3.0, 0.0, 1.0));
+      }
+
       void main() {
-        vec3 l0 = texture2D(tSharp, vUv).rgb;
-        float coc = cocOf(texture2D(tDepth, vUv).x);
-        float r = coc * maxBlur;
-        float lf = r <= r1 ? r / r1 : 1.0 + log2(r / r1);
-        lf = clamp(lf, 0.0, 4.0);
-        vec3 l1 = fetch(tL1, l0);
-        vec3 l2 = fetch(tL2, l1);
-        vec3 l3 = fetch(tL3, l2);
-        vec3 l4 = fetch(tL4, l3);
-        vec3 col;
-        if      (lf < 1.0) col = mix(l0, l1, lf);
-        else if (lf < 2.0) col = mix(l1, l2, lf - 1.0);
-        else if (lf < 3.0) col = mix(l2, l3, lf - 2.0);
-        else               col = mix(l3, l4, lf - 3.0);
-        // Fine static grain, a touch stronger where the image is diffused —
-        // reads as the texture of the glass rather than a flat overlay.
-        float n = fract(sin(dot(floor(vUv * resolution), vec2(12.9898, 78.233))) * 43758.5453);
-        col += (n - 0.5) * grain * (0.5 + 0.5 * min(lf, 1.0));
+        vec4 centerSample = texture2D(tSharp, vUv);
+        vec3 centerCol = centerSample.rgb;
+        float centerCoc = centerSample.a * 2.0 - 1.0;
+        // Scale maxBlur by dpr so bokeh radius is consistent in CSS px across 1x & Retina
+        float maxBlurPx = maxBlur * dpr;
+        float centerR = centerCoc * maxBlurPx;
+        float aCenter = abs(centerR);
+        float nearR = texture2D(tNear, vUv).r * maxBlurPx;
+        float gatherR = max(aCenter, nearR);
+
+        vec3 col = centerCol;
+
+        if (gatherR >= 0.55) {
+          float rot = ign(gl_FragCoord.xy) * 6.2831853;
+          // Match tap footprint to pyramid mip level so thin blurred tubes stay
+          // silky continuous while preserving a true circular aperture bokeh disc.
+          float mip = clamp(log2(max(1.0, gatherR * 0.22)), 0.0, 3.0);
+          float feather = max(1.2 * dpr, gatherR * 0.12);
+
+          float centerIsFg = centerR < -0.5 * dpr ? 1.0 : 0.0;
+          float bgW = 1.0 - centerIsFg;
+          vec3 bgCol = centerCol * bgW;
+
+          vec3 fgCol = centerCol * centerIsFg;
+          float fgW = centerIsFg;
+          float fgCoverage = centerIsFg;
+
+          for (int i = 0; i < 24; i++) {
+            float fi = float(i) + 0.5;
+            float normR = sqrt(fi / 24.0);
+            float ang = fi * GOLDEN_ANGLE + rot;
+            float d = normR * gatherR;
+            vec2 offsetPx = vec2(cos(ang), sin(ang)) * d;
+            vec2 tapUv = clamp(vUv + offsetPx / resolution, vec2(0.001), vec2(0.999));
+
+            vec4 ts = texture2D(tSharp, tapUv);
+            float tapR = (ts.a * 2.0 - 1.0) * maxBlurPx;
+            float aTap = abs(tapR);
+
+            // Subtle 50mm f/1.8 spherical aberration: gently brighter bokeh disc rim
+            float ringW = mix(1.0 - bokehRing * 0.45, 1.0 + bokehRing, smoothstep(0.55, 0.96, normR));
+
+            if (tapR < -0.5 * dpr) {
+              float w = smoothstep(d - feather, d + feather, aTap);
+              if (w > 0.001) {
+                vec3 tc = sampleMip(tapUv, mip * 0.85, ts.rgb);
+                fgCol += tc * w * ringW;
+                fgW += w * ringW;
+                fgCoverage += w;
+              }
+            } else {
+              // Background & focal-plane taps: never leak from sharp focal plane
+              // onto backdrop, and never bleed blurred background over sharp nodes.
+              float effR = (tapR < centerR) ? aTap : min(aCenter, aTap);
+              float w = smoothstep(d - feather, d + feather, effR);
+              if (w > 0.001) {
+                vec3 tc = sampleMip(tapUv, mip, ts.rgb);
+                bgCol += tc * w * ringW;
+                bgW += w * ringW;
+              }
+            }
+          }
+
+          col = bgW > 0.001 ? (bgCol / bgW) : centerCol;
+          if (fgW > 0.001) {
+            vec3 fg = fgCol / fgW;
+            float fgAlpha = clamp((fgCoverage / 25.0) * 1.15, 0.0, 1.0);
+            col = mix(col, fg, fgAlpha);
+          }
+        }
+
+        // Subtle 50mm f/1.8 lateral chromatic aberration (0 at optical centre)
+        if (caStrength > 0.001) {
+          vec2 radial = vUv - 0.5;
+          float r2 = dot(radial, radial);
+          vec2 caShift = radial * r2 * caStrength * 2.4 * dpr / resolution;
+          vec2 uvR = clamp(vUv + caShift, vec2(0.001), vec2(0.999));
+          vec2 uvB = clamp(vUv - caShift, vec2(0.001), vec2(0.999));
+          float caMip = clamp(log2(max(1.0, gatherR * 0.35)), 0.0, 2.0);
+          vec3 sR = sampleMip(uvR, caMip, texture2D(tSharp, uvR).rgb);
+          vec3 sB = sampleMip(uvB, caMip, texture2D(tSharp, uvB).rgb);
+          col.r = mix(col.r, sR.r, 0.45);
+          col.b = mix(col.b, sB.b, 0.45);
+        }
+
+        // Natural cos^4(theta) optical vignetting (delicate on light paper, richer on dark)
+        if (vignette > 0.001) {
+          vec2 centered = (vUv - 0.5) * vec2(resolution.x / max(resolution.y, 1.0), 1.0);
+          float r2 = dot(centered, centered);
+          float cosTheta = 1.0 / sqrt(1.0 + r2 * 0.95);
+          float vigStrength = vignette * mix(0.24, 1.0, isDark);
+          col *= mix(1.0, pow(cosTheta, 4.0), vigStrength);
+        }
+
+        // Authentic ISO 800 film grain: 2-octave clumped Gaussian silver-halide
+        // texture, subtle 3-layer dye-cloud chroma, H&D midtone sensitivity curve,
+        // and natural 24fps film-gate cadence.
+        if (grain > 0.0001) {
+          float frame = grainFps > 0.5 ? floor(uTime * grainFps) : 0.0;
+          vec2 jitter = fract(vec2(frame * 0.75487766, frame * 0.56984029)) * 131.0;
+          vec2 gp = gl_FragCoord.xy / max(dpr * grainSize, 0.5) + jitter;
+
+          mat2 gRot = mat2(0.80, -0.60, 0.60, 0.80);
+          vec3 gCoarse = grainNoise(gp);
+          vec3 gFine   = grainNoise(gRot * gp * 2.13 + vec2(19.7, 43.1));
+          vec3 gBlue   = grainNoise(gp * 0.72 + vec2(71.3, 11.9));
+          vec3 rawG    = gCoarse * 0.62 + gFine * 0.38;
+          rawG.b       = mix(rawG.b, gBlue.b, 0.30);
+          rawG        *= 2.6;
+
+          float lumaG = dot(rawG, vec3(0.299, 0.587, 0.114));
+          vec3 filmG = mix(vec3(lumaG), rawG, grainChroma);
+
+          float luma = dot(col, vec3(0.299, 0.587, 0.114));
+          float midtone = sin(clamp(luma, 0.0, 1.0) * 3.14159265);
+          float hdEnvelope = mix(0.40, 1.0, midtone);
+          float blurBoost = 1.0 + 0.22 * clamp(gatherR / max(maxBlurPx, 1.0), 0.0, 1.0);
+          float amp = grain * hdEnvelope * blurBoost;
+
+          // Keep symmetric grain headroom near paper white (#fff) & ink black (#000)
+          float hiPull = smoothstep(0.92, 1.0, luma) * grain * 0.15;
+          float loLift = (1.0 - smoothstep(0.0, 0.08, luma)) * grain * 0.08;
+          col = clamp(col - hiPull + loLift + filmG * amp, 0.0, 1.0);
+        }
+
         gl_FragColor = vec4(col, 1.0);
       }
     `, {
-      tSharp: { value: sharpRT.texture }, tDepth: { value: depthTexture },
+      tSharp: { value: sharpRT.texture }, tNear: { value: nearA.texture },
       tL1: { value: pyr[0].a.texture }, tL2: { value: pyr[1].a.texture },
       tL3: { value: pyr[2].a.texture }, tL4: { value: pyr[3].a.texture },
       resolution: { value: new THREE.Vector2(1, 1) },
-      maxBlur: { value: CFG_DOF.maxBlur ?? 18 },
-      grain:   { value: CFG_DOF.grain ?? 0.06 },
-      r1:      { value: R1 },
-      ...depthUniforms(),
+      dpr:        { value: Math.min(2, window.devicePixelRatio || 1) },
+      uTime:      { value: 0 },
+      maxBlur:    { value: CFG_DOF.maxBlur ?? 18 },
+      bokehRing:  { value: CFG_DOF.bokehRing ?? 0.18 },
+      caStrength: { value: CFG_DOF.chromaticAberration ?? 0.9 },
+      vignette:   { value: CFG_DOF.vignette ?? 0.22 },
+      isDark:     { value: dark ? 1.0 : 0.0 },
+      grain:      { value: CFG_DOF.grain ?? 0.085 },
+      grainSize:  { value: CFG_DOF.grainSize ?? 1.45 },
+      grainChroma:{ value: CFG_DOF.grainChroma ?? 0.22 },
+      grainFps:   { value: CFG_DOF.grainFps ?? 24 },
     });
 
     const passScene = new THREE.Scene();
@@ -681,24 +923,14 @@ function Graph({
       renderer.render(passScene, passCam);
     };
 
-    const canvasTexel = new THREE.Vector2(1, 1);
-    // Frost is also the supersample resolve filter, so keep a floor of ~0.6px:
-    // below that the 2× capture is only box-filtered and thin diagonal tubes
-    // start to show stair-steps again.
-    const frostK = Math.max(CFG_DOF.frost ?? 1.2, 0.6) / 1.75;
-
-    const renderDof = () => {
+    const renderDof = (now) => {
       renderer.setRenderTarget(sceneRT);
       renderer.render(scene, camera);
 
-      // Frost: uniform softness. Also resolves the supersample to canvas size.
-      blurMat.uniforms.tInput.value = sceneRT.texture;
-      blurMat.uniforms.dir.value.set(canvasTexel.x * frostK, 0);
-      runPass(blurMat, frostTmp);
-      blurMat.uniforms.tInput.value = frostTmp.texture;
-      blurMat.uniforms.dir.value.set(0, canvasTexel.y * frostK);
-      runPass(blurMat, sharpRT);
+      // 1. Crisp 2× supersample resolve + signed hyperbolic thin-lens CoC
+      runPass(resolveMat, sharpRT);
 
+      // 2. CoC-weighted blur pyramid for continuous out-of-focus edges
       for (let i = 0; i < LEVELS; i++) {
         const L = pyr[i];
         if (i === 0) {
@@ -715,22 +947,38 @@ function Graph({
         runPass(blurMat, L.a);
       }
 
+      // 3. Quarter-res foreground CoC max-dilation so near blur halos over sharp nodes
+      runPass(nearExtractMat, nearA);
+      nearDilateMat.uniforms.tInput.value = nearA.texture;
+      nearDilateMat.uniforms.dir.value.set(nearTexel.x, 0);
+      runPass(nearDilateMat, nearB);
+      nearDilateMat.uniforms.tInput.value = nearB.texture;
+      nearDilateMat.uniforms.dir.value.set(0, nearTexel.y);
+      runPass(nearDilateMat, nearA);
+
+      // 4. Final circular bokeh gather + 50mm optics + ISO 800 film grain
+      compositeMat.uniforms.uTime.value = (now || performance.now()) * 0.001;
       runPass(compositeMat, null);
     };
 
     const resizeDof = () => {
       const w = container.clientWidth, h = container.clientHeight;
       const pr = renderer.getPixelRatio();
-      // Supersample the capture: it's an offscreen target, so it gets no MSAA
-      // of its own. Clamped — beyond 2× the cost explodes for no visible gain.
-      const ss = Math.min(2, Math.max(1, CFG_DOF.renderScale ?? 1.5));
+      const ss = Math.min(2, Math.max(1, CFG_DOF.renderScale ?? 2));
       const W = Math.max(1, Math.round(w * pr)), H = Math.max(1, Math.round(h * pr));
       sceneRT.setSize(Math.round(W * ss), Math.round(H * ss));
-      frostTmp.setSize(W, H);
       sharpRT.setSize(W, H);
-      canvasTexel.set(1 / W, 1 / H);
-      prefilterMat.uniforms.texel.value.set(1 / (W * ss), 1 / (H * ss));
+      resolveMat.uniforms.texel.value.set(1 / (W * ss), 1 / (H * ss));
+      prefilterMat.uniforms.texel.value.set(1 / W, 1 / H);
+      nearExtractMat.uniforms.texel.value.set(1 / W, 1 / H);
+      const nw = Math.max(1, Math.round(W / 4)), nh = Math.max(1, Math.round(H / 4));
+      nearA.setSize(nw, nh);
+      nearB.setSize(nw, nh);
+      // 3 dilation steps at 1/4-res cover full maxBlur * dpr reach
+      const nearStride = Math.max(1.0, ((CFG_DOF.maxBlur ?? 18) * pr) / 12.0);
+      nearTexel.set(nearStride / nw, nearStride / nh);
       compositeMat.uniforms.resolution.value.set(W, H);
+      compositeMat.uniforms.dpr.value = pr;
       let lw = W, lh = H;
       for (const L of pyr) {
         lw = Math.max(1, Math.round(lw / 2));
@@ -756,6 +1004,8 @@ function Graph({
       catch { bgColor.setHex(document.body.dataset.mode === "dark" ? 0x0a0a0a : 0xfaf9f5); }
       scene.background = bgColor;
       scene.fog.color.copy(bgColor);
+      const bgLuma = bgColor.r * 0.299 + bgColor.g * 0.587 + bgColor.b * 0.114;
+      compositeMat.uniforms.isDark.value = bgLuma < 0.5 ? 1.0 : 0.0;
     };
     syncBackground();
     const modeObs = new MutationObserver(syncBackground);
@@ -885,9 +1135,9 @@ function Graph({
       ro.disconnect();
       modeObs.disconnect();
       container.removeChild(renderer.domElement);
-      for (const rt of [sceneRT, frostTmp, sharpRT, ...pyr.flatMap(L => [L.a, L.b])]) rt.dispose();
+      for (const rt of [sceneRT, sharpRT, nearA, nearB, ...pyr.flatMap(L => [L.a, L.b])]) rt.dispose();
       depthTexture.dispose();
-      for (const m of [copyMat, blurMat, prefilterMat, compositeMat]) m.dispose();
+      for (const m of [copyMat, resolveMat, blurMat, prefilterMat, nearExtractMat, nearDilateMat, compositeMat]) m.dispose();
       passQuad.geometry.dispose();
       renderer.dispose();
     };
@@ -1283,7 +1533,7 @@ function Graph({
 
       s.projected = projected;
 
-      t.renderDof();
+      t.renderDof(now);
     };
     
     raf = requestAnimationFrame(draw);

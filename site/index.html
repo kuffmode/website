@@ -491,22 +491,38 @@
 
 <div class="kf-grain" id="grain" aria-hidden="true"></div>
 <script>
-  // Canvas-rendered grain (SVG feTurbulence renders unreliably on iOS Safari).
-  // We make two textures — dark pixels for "multiply" in light mode, light pixels
-  // for "screen" in dark mode — and tile each twice with an offset so the
-  // repeating tile pattern isn't visible to the eye.
+  // Canvas-rendered photographic film grain fallback (used only if CSS grain > 0).
+  // Uses Box-Muller Gaussian noise lightly convolved with a 3x3 organic clump
+  // kernel so it reads as fine silver-halide grain rather than sparse dots.
   (function paintGrain() {
     const SIZE = 256;
+    const raw = new Float32Array(SIZE * SIZE);
+    for (let i = 0; i < raw.length; i++) {
+      const u1 = Math.max(1e-6, Math.random());
+      const u2 = Math.random();
+      raw[i] = Math.sqrt(-2 * Math.log(u1)) * Math.cos(6.2831853 * u2);
+    }
+    const clumped = new Float32Array(SIZE * SIZE);
+    for (let y = 0; y < SIZE; y++) {
+      const ym = (y - 1 + SIZE) & 255, yp = (y + 1) & 255;
+      for (let x = 0; x < SIZE; x++) {
+        const xm = (x - 1 + SIZE) & 255, xp = (x + 1) & 255;
+        clumped[y * SIZE + x] =
+          raw[y * SIZE + x] * 0.52 +
+          (raw[ym * SIZE + x] + raw[yp * SIZE + x] + raw[y * SIZE + xm] + raw[y * SIZE + xp]) * 0.12;
+      }
+    }
     function makeNoise(channel) {
       const c = document.createElement('canvas');
       c.width = SIZE; c.height = SIZE;
       const cx = c.getContext('2d');
       const img = cx.createImageData(SIZE, SIZE);
       const d = img.data;
-      for (let i = 0; i < d.length; i += 4) {
-        d[i] = d[i+1] = d[i+2] = channel;
-        // Sparse, low-alpha grain reads as fine paper texture rather than dots.
-        d[i+3] = Math.random() < 0.30 ? Math.floor(Math.random() * 90) : 0;
+      for (let i = 0; i < clumped.length; i++) {
+        const j = i * 4;
+        const v = Math.max(0, Math.min(1, clumped[i] * 0.35 + 0.5));
+        d[j] = d[j+1] = d[j+2] = channel;
+        d[j+3] = Math.round(v * 52);
       }
       cx.putImageData(img, 0, 0);
       return c.toDataURL('image/png');

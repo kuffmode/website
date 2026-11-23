@@ -1,6 +1,6 @@
 ---
 kicker: Interactive media
-title: I vibecode therefore I am.
+title: I vibecode, therefore I am.
 ---
 We live in the attention economy, nobody's got the time to read long texts, so digital communication should adapt and move on to more engaging formats. Besides, interaction makes it far easier for people to understand complex concepts. So here we are. This page contains my attempts at creating interactive media to communicate my research and ideas. 
 
