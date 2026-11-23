@@ -255,9 +255,12 @@ function Page({ id, sub, anchor, onNav }) {
             fontFamily: 'var(--font-text)', fontSize: 16,
             padding: '8px 12px', border: '2px solid currentColor',
             borderRadius: 0, cursor: 'pointer', letterSpacing: '0.02em',
-            marginTop: '2em', display: 'block'
+            marginTop: '2em', display: 'inline-flex', alignItems: 'center', gap: '8px'
           }}
-        >{isBlogPost ? '← back to blog' : '← close page'}</button>
+        >
+          {window.KfIcon && <window.KfIcon name="arrowLeft" size={16} />}
+          <span>{isBlogPost ? 'back to blog' : 'close page'}</span>
+        </button>
 
       </div>
     </div>

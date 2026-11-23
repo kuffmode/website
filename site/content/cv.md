@@ -11,7 +11,7 @@ You can download my CV [here](content/kfcv.pdf); below is just a summary.
 ## Current Appointments & Responsibilities
 - **2026 – :** Chris Rokos Fellow @ Queens' College, University of Cambridge
 - **2026 – :** Editor of the special issue *"Communication and Causation in Neural Systems"* @ Philosophical Transactions of the Royal Society B
-- **2026 – :** Co-organizer @ Making Connections Seminar Series
+- **2026 – :** Co-organiser @ Making Connections Seminar Series
 - **2025 – :** Coordinator @ Cambridge Networks Network
 - **2025 – :** Visiting Researcher @ The Institute of Computational Neuroscience (ICNS), UKE Hamburg
 - **2025 – :** Founding member of Bernstein Node in Hamburg
@@ -22,7 +22,7 @@ You can download my CV [here](content/kfcv.pdf); below is just a summary.
 - **2016 – 2018:** MSc Neuroscience @ Carl von Ossietzky University of Oldenburg, Oldenburg, Germany
 - **2009 – 2015:** BSc Clinical Psychology @ Roudehen University, Tehran, Iran
 
-## Organized Events
+## Organised Events
 
 - **2026:** Workshop *"Promises & Perils of Connectome-Constrained Neuro-AI Models"* @ OHBM, Bordeaux, FR
 - **2025:** Workshop *"Linking Structure, Dynamics, & Function in Neuronal Networks: Old Challenges & New Directions"* @ OCNS, Florence, IT
@@ -48,7 +48,7 @@ You can download my CV [here](content/kfcv.pdf); below is just a summary.
 - **2016 – 2017:** MSc students' representative of the MSc admission committee @ University of Oldenburg
 - **2016 – 2018:** Founding member of MSc Neuroscience's student body @ University of Oldenburg
 - **2014 – 2016:** Graphic designer @ Eshareh creative solutions
-- **2009 – 2016:** Graphic designer @ Behnam Daheshpour charity organization
+- **2009 – 2016:** Graphic designer @ Behnam Daheshpour charity organisation
 - **2013 – 2015:** Graphic designer @ United Nations' World Food Programme (WFP)
 
 ## Selected Publications

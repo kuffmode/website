@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-GB">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,6 +7,9 @@
 <!-- Deep links like /blog/post load this page from a subpath; keep every
      relative script/fetch/asset URL anchored to the site root. -->
 <base href="/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Asta+Sans:wght@300..800&family=Faculty+Glyphic&display=swap">
 <link rel="stylesheet" href="colors_and_type.css">
 <style>
   html, body { margin:0; padding:0; height:100%; background: var(--color-paper); overflow:hidden; }
@@ -70,6 +73,7 @@
 
   /* Day/night toggle */
   .kf-mode-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
     background: transparent; border: 0; cursor: pointer;
     color: #fff; font-size: 16px; line-height: 1;
     padding: 4px 6px; margin-left: 16px;
@@ -211,6 +215,7 @@
     color: rgba(0,0,0,0.55);
   }
   .kf-explorer-head button {
+    display: inline-flex; align-items: center; justify-content: center;
     background: transparent; border: 0; cursor: pointer;
     width: 20px; height: 20px; padding: 0;
     font-family: var(--font-mono); font-size: 14px; line-height: 1;
@@ -290,7 +295,10 @@
   .kf-actions .kf-perturb.loop .dot { background: #fff; border-color: #fff;
     animation: kfPulse 700ms ease-in-out infinite; }
   @keyframes kfPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
-  .kf-actions .kf-scissors { font-size: 14px; line-height: 1; padding: 6px 0; }
+  .kf-actions .kf-scissors {
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; line-height: 1; padding: 6px 0;
+  }
   .kf-actions .kf-scissors.active { background: #F53A61; color: #fff; border-color: #F53A61; }
   .kf-actions .kf-uncut {
     grid-column: 1 / span 2;
@@ -397,6 +405,7 @@
   .kf-nav-overlay ul a.active { color: #F53A61; }
   .kf-nav-overlay-close {
     position: absolute; top: 22px; right: 28px;
+    display: inline-flex; align-items: center; justify-content: center;
     background: transparent; border: 0; cursor: pointer;
     font-size: 22px; line-height: 1; padding: 8px;
     color: rgba(0,0,0,0.55);
@@ -411,7 +420,7 @@
   @media (max-width: 640px) {
     /* Nav: hide links row, show hamburger */
     .kf-navlinks { display: none !important; }
-    .kf-hamburger { display: block; }
+    .kf-hamburger { display: inline-flex; align-items: center; justify-content: center; }
 
     /* Footer + hint hidden on mobile — FAB replaces them */
     .kf-footer { display: none; }
@@ -419,7 +428,7 @@
 
     /* FAB button */
     .kf-fab-manipulate {
-      display: block;
+      display: inline-flex; align-items: center; gap: 6px;
       position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
       z-index: 46;
       background: rgba(255,255,255,0.88);
@@ -556,6 +565,81 @@ const NAV_ITEMS = [
   { id: "contact",  label: "contact" },
 ];
 
+// Coherent UI icon set (Lucide stroke icons, 24x24 viewBox)
+const ICON_PATHS = {
+  sun: (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2" /><path d="M12 20v2" />
+      <path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" />
+      <path d="M2 12h2" /><path d="M20 12h2" />
+      <path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" />
+    </>
+  ),
+  moon: <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />,
+  scissors: (
+    <>
+      <circle cx="6" cy="6" r="3" />
+      <path d="M8.12 8.12 12 12" />
+      <path d="M20 4 8.12 15.88" />
+      <circle cx="6" cy="18" r="3" />
+      <path d="M14.8 14.8 20 20" />
+    </>
+  ),
+  crosshair: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="22" x2="18" y1="12" y2="12" />
+      <line x1="6" x2="2" y1="12" y2="12" />
+      <line x1="12" x2="12" y1="6" y2="2" />
+      <line x1="12" x2="12" y1="22" y2="18" />
+    </>
+  ),
+  plus: (
+    <>
+      <path d="M5 12h14" /><path d="M12 5v14" />
+    </>
+  ),
+  minus: <path d="M5 12h14" />,
+  menu: (
+    <>
+      <line x1="4" x2="20" y1="12" y2="12" />
+      <line x1="4" x2="20" y1="6" y2="6" />
+      <line x1="4" x2="20" y1="18" y2="18" />
+    </>
+  ),
+  x: (
+    <>
+      <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+    </>
+  ),
+  arrowLeft: (
+    <>
+      <path d="m12 19-7-7 7-7" /><path d="M19 12H5" />
+    </>
+  ),
+};
+
+function Icon({ name, size = 16, strokeWidth = 1.75, style }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={{ display: "block", flexShrink: 0, ...style }}
+    >
+      {ICON_PATHS[name]}
+    </svg>
+  );
+}
+window.KfIcon = Icon;
+
 function Nav({ current, onNav, mobileNavOpen, onMobileNavToggle, solid, mode, onToggleMode }) {
   const isDark = mode === "dark";
   return (
@@ -578,17 +662,17 @@ function Nav({ current, onNav, mobileNavOpen, onMobileNavToggle, solid, mode, on
             onClick={onToggleMode}
             title={isDark ? "switch to light" : "switch to dark"}
             aria-label={isDark ? "switch to light mode" : "switch to dark mode"}
-          >{isDark ? "☀" : "☾"}</button>
+          ><Icon name={isDark ? "sun" : "moon"} size={16} /></button>
           <button
             className={"kf-hamburger" + (mobileNavOpen ? " open" : "")}
             onClick={() => onMobileNavToggle(!mobileNavOpen)}
             aria-label={mobileNavOpen ? "close menu" : "open menu"}
-          >{mobileNavOpen ? "✕" : "☰"}</button>
+          ><Icon name={mobileNavOpen ? "x" : "menu"} size={20} /></button>
         </div>
       </nav>
       {mobileNavOpen && (
         <div className="kf-nav-overlay" onClick={() => onMobileNavToggle(false)}>
-          <button className="kf-nav-overlay-close" onClick={() => onMobileNavToggle(false)}>✕</button>
+          <button className="kf-nav-overlay-close" onClick={() => onMobileNavToggle(false)} aria-label="close menu"><Icon name="x" size={20} /></button>
           <ul onClick={e => e.stopPropagation()}>
             {NAV_ITEMS.map(it => (
               <li key={it.id}>
@@ -642,11 +726,11 @@ function Explorer({ t, setTweak, hidden, mobileVisible, perturbMode, cutMode, on
       <div className="kf-explorer-head" onPointerDown={onHeadDown}>
         <h4>manipulate</h4>
         <div style={{ display: "flex", gap: 2 }}>
-          <button title="recenter graph"
+          <button title="recentre graph" aria-label="recentre graph"
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); window.__kfRecenter && window.__kfRecenter(); }}>⊙</button>
-          <button title={collapsed ? "expand" : "collapse"}
-            onClick={() => setCollapsed(c => !c)}>{collapsed ? "+" : "–"}</button>
+            onClick={(e) => { e.stopPropagation(); window.__kfRecenter && window.__kfRecenter(); }}><Icon name="crosshair" size={14} /></button>
+          <button title={collapsed ? "expand" : "collapse"} aria-label={collapsed ? "expand" : "collapse"}
+            onClick={() => setCollapsed(c => !c)}><Icon name={collapsed ? "plus" : "minus"} size={14} /></button>
         </div>
       </div>
       <div className="kf-explorer-body">
@@ -691,7 +775,7 @@ function Explorer({ t, setTweak, hidden, mobileVisible, perturbMode, cutMode, on
               onClick={onCutToggle}
               title="cut: click nodes or links to fade them out"
               aria-label="scissors"
-            >✂</button>
+            ><Icon name="scissors" size={15} /></button>
             {(cutMode) && (
               <button className="kf-uncut" onClick={onUncutAll}
                 title="restore all cut nodes and edges">restore cuts</button>
@@ -900,7 +984,7 @@ function App() {
           <button
             className={"kf-fab-manipulate" + (mobileExplorerOpen ? " open" : "")}
             onClick={() => setMobileExplorerOpen(o => !o)}
-          >{mobileExplorerOpen ? "✕ close" : "▦ manipulate"}</button>
+          >{mobileExplorerOpen ? <><Icon name="x" size={13} /><span>close</span></> : "▦ manipulate"}</button>
         </>
       )}
 
@@ -938,7 +1022,7 @@ function App() {
         <TweakSection title="Atmosphere">
           <TweakSlider label="Grain" value={t.grain} min={0} max={100} step={1} onChange={v => setTweak("grain", v)} />
           <TweakSlider label="Idle spin speed" value={t.speed} min={0} max={3} step={0.1} onChange={v => setTweak("speed", v)} />
-          <TweakRadio label="Color mode" value={t.mode} options={[
+          <TweakRadio label="Colour mode" value={t.mode} options={[
             { value: "light", label: "Paper" },
             { value: "cream", label: "Cream" },
             { value: "dark",  label: "Ink" },

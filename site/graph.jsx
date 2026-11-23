@@ -32,7 +32,7 @@ const RESEARCH_THEMES = [
 const ABOUT_SECTIONS = [
   { id: "about-bridge",   label: "structure × dynamics × function", href: "about#bridging-structure-dynamics-and-function-in-the-brain",     clickable: true, kind: "section" },
   { id: "about-rigorous", label: "rigorous causal inference",       href: "about#the-search-for-a-rigorous-foundation-for-causal-inference", clickable: true, kind: "section" },
-  { id: "about-behavior", label: "from behavior to computation",    href: "about#from-behavior-to-computation",                              clickable: true, kind: "section" },
+  { id: "about-behavior", label: "from behaviour to computation",    href: "about#from-behaviour-to-computation",                              clickable: true, kind: "section" },
   { id: "about-clinical", label: "clinical psychology",             href: "about#foundations-in-clinical-psychology",                        clickable: true, kind: "section" },
   { id: "about-beyond",   label: "beyond the lab",                  href: "about#beyond-the-lab",                                            clickable: true, kind: "section" },
 ];
@@ -1515,7 +1515,7 @@ function Graph({
         style={{
           position: 'absolute', 
           display: 'none', 
-          fontFamily: "'IBM Plex Sans', sans-serif",
+          fontFamily: "var(--font-text)",
           fontWeight: 500,
           fontSize: '16px',
           pointerEvents: 'none',
