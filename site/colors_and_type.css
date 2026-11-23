@@ -21,18 +21,19 @@
 
 /* ---------- Tokens ---------- */
 :root {
-  /* Color — base */
-  --color-paper:       #FFFFFF;
-  --color-paper-cream: #FAF9F5;
-  --color-ink:         rgba(0, 0, 0, 0.85);
-  --color-ink-pure:    #000000;
-  --color-ink-soft:    #141413;
-  --color-muted:       #808080;
-  --color-hairline:    rgba(0, 0, 0, 0.2);
+  /* Color — base (Warm uncoated Munken / Riso zine stock) */
+  --color-paper:       #FBF9F3;
+  --color-paper-cream: #F4EFE4;
+  --color-ink:         rgba(24, 24, 26, 0.88);
+  --color-ink-pure:    #18181A;
+  --color-ink-soft:    #222224;
+  --color-muted:       #76736B;
+  --color-hairline:    rgba(24, 24, 26, 0.22);
 
-  /* Color — print process accents */
-  --color-riso-magenta: #F53A61;   /* Hot Pink — primary accent / link */
-  --color-riso-cyan:    #004992;   /* Print Blue — secondary accent / link */
+  /* Color — print process accents (Riso Kagaku soy inks) */
+  --color-riso-magenta: #F53A61;   /* Hot Pink / Crimson drum — primary accent / link */
+  --color-riso-cyan:    #0078BF;   /* Medium Print Blue drum — secondary accent / link */
+  --color-riso-yellow:  #FFB511;   /* Sunflower Gold drum — active / perturb accent */
 
   /* Semantic color */
   --bg:           var(--color-paper);

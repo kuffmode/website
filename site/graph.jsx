@@ -12,6 +12,12 @@ const CFG_SCENE  = CFG.scene  || {};
 const CFG_NODES  = CFG.nodes  || {};
 const CFG_LAYOUT = CFG.layout || {};
 const CFG_IDLE   = CFG.idle   || {};
+const RISO       = window.RISO_CONFIG || {};
+const RISO_INKS  = RISO.inks || {};
+const RISO_REG   = RISO.registration || {};
+const RISO_HALF  = RISO.halftone || {};
+const RISO_INK   = RISO.ink || {};
+const RISO_PAPER = RISO.paper || {};
 
 const PAGES = [
   { id: "about",    label: "about",              href: "about",    clickable: true, kind: "page" },
@@ -711,6 +717,27 @@ function Graph({
       uniform float grainSize;
       uniform float grainChroma;
       uniform float grainFps;
+      // ── Risograph print emulation uniforms ──
+      uniform float risoEnabled;
+      uniform vec3  risoKeyInk;
+      uniform vec3  risoPrimaryInk;
+      uniform vec3  risoSecondaryInk;
+      uniform vec2  risoPrimaryOffset;
+      uniform vec2  risoSecondaryOffset;
+      uniform float risoWobbleAmt;
+      uniform float risoWobbleSpeed;
+      uniform float risoHalftoneOn;
+      uniform float risoDotScale;
+      uniform float risoStochastic;
+      uniform float risoHalftoneStrength;
+      uniform vec3  risoAngles;
+      uniform float risoMaxDensity;
+      uniform float risoStencilVoids;
+      uniform float risoEdgeSquash;
+      uniform float risoUnderprint;
+      uniform float risoFiber;
+      uniform float risoRollerLines;
+      uniform float risoPressContrast;
       varying vec2 vUv;
 
       const float GOLDEN_ANGLE = 2.39996323;
@@ -738,6 +765,23 @@ function Graph({
         vec3 c = hash32(i + vec2(0.0, 1.0));
         vec3 d = hash32(i + vec2(1.0, 1.0));
         return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+      }
+
+      // Rotated halftone dot screen + stochastic banana-paper stencil grain threshold
+      float risoScreen(float density, vec2 cssCoord, float angleDeg, float dotPitch, float stochasticMix, float strength, float stencilNoise) {
+        if (density <= 0.002) return 0.0;
+        float rad = angleDeg * 0.01745329;
+        float c = cos(rad), s = sin(rad);
+        vec2 g = mat2(c, -s, s, c) * (cssCoord / max(dotPitch, 1.2));
+        // Classic Euclidean round-dot halftone wave in [0, 1]
+        float dotWave = (sin(g.x * 6.2831853) * sin(g.y * 6.2831853)) * 0.5 + 0.5;
+        // Blend ordered halftone dot with stochastic FM stencil fiber noise
+        float thresh = mix(dotWave, stencilNoise, stochasticMix);
+        // Soft anti-aliased stencil threshold so dots feel pressed into paper fibers
+        float screened = smoothstep(thresh - 0.16, thresh + 0.16, density * 1.06);
+        // Solid cores stay rich while midtones & bokeh fringes break into crisp zine dots
+        float midWeight = 1.0 - pow(clamp(density, 0.0, 1.0), 2.6) * 0.65;
+        return mix(density, screened, strength * midWeight);
       }
 
       vec3 fetchPyr(sampler2D t, vec2 uv, vec3 fallback) {
@@ -892,6 +936,118 @@ function Graph({
           col = clamp(col - hiPull + loLift + filmG * amp, 0.0, 1.0);
         }
 
+        // ── Risograph Multi-Drum Print Emulation ───────────────────────────
+        if (risoEnabled > 0.5) {
+          vec2 cssCoord = gl_FragCoord.xy / max(dpr, 1.0);
+
+          // Static paper-locked fiber & banana-paper stencil master texture
+          vec3 nCoarse = grainNoise(cssCoord * 0.52 + vec2(13.4, 29.1));
+          vec3 nFine   = grainNoise(cssCoord * 1.65 + vec2(71.2, 53.8));
+          vec3 nMicro  = hash32(floor(cssCoord * 1.35));
+          float paperFiber  = (nCoarse.x * 0.62 + nFine.x * 0.38);
+          float stencilTex  = clamp((nFine.y * 0.58 + nMicro.y * 0.42) + 0.5, 0.0, 1.0);
+          float voidSpeckle = clamp((nFine.z * 0.52 + nMicro.z * 0.48) + 0.5, 0.0, 1.0);
+
+          // Drum misregistration offsets (with optional subtle feed breathing)
+          float wobPhase = uTime * risoWobbleSpeed * 6.2831853;
+          vec2 wob1 = vec2(cos(wobPhase), sin(wobPhase * 0.73)) * risoWobbleAmt;
+          vec2 wob2 = vec2(sin(wobPhase * 0.81), -cos(wobPhase * 0.67)) * risoWobbleAmt;
+          vec2 uvP = clamp(vUv + (risoPrimaryOffset   + wob1) * dpr / resolution, vec2(0.001), vec2(0.999));
+          vec2 uvS = clamp(vUv + (risoSecondaryOffset + wob2) * dpr / resolution, vec2(0.001), vec2(0.999));
+
+          float drumMip = clamp(log2(max(1.0, gatherR * 0.32)), 0.0, 2.5);
+          vec3 colP = sampleMip(uvP, drumMip, texture2D(tSharp, uvP).rgb);
+          vec3 colS = sampleMip(uvS, drumMip, texture2D(tSharp, uvS).rgb);
+
+          // Decompose scene into ink drum densities:
+          // - Key drum (black in light/cream, chalk-white in dark mode)
+          // - Primary drum (Hot Pink / Magenta + underprint shadow pass)
+          // - Secondary drum (Print Blue / Cyan + underprint shadow pass)
+          float luma0 = dot(col,  vec3(0.299, 0.587, 0.114));
+          float lumaP = dot(colP, vec3(0.299, 0.587, 0.114));
+          float lumaS = dot(colS, vec3(0.299, 0.587, 0.114));
+
+          float darkness0 = mix(clamp(1.0 - luma0, 0.0, 1.0), clamp(luma0, 0.0, 1.0), isDark);
+          float darknessP = mix(clamp(1.0 - lumaP, 0.0, 1.0), clamp(lumaP, 0.0, 1.0), isDark);
+          float darknessS = mix(clamp(1.0 - lumaS, 0.0, 1.0), clamp(lumaS, 0.0, 1.0), isDark);
+
+          // Detect chromatic accents (hover pink, external blue, perturb gold)
+          float pinkChroma0 = max(0.0, col.r  - max(col.g,  col.b));
+          float pinkChromaP = max(0.0, colP.r - max(colP.g, colP.b));
+          float blueChroma0 = max(0.0, col.b  - col.r * 0.75);
+          float blueChromaS = max(0.0, colS.b - colS.r * 0.75);
+          float goldChroma0 = max(0.0, min(col.r, col.g) - col.b);
+
+          // Key drum carries neutral darks (reduced on pure chromatic hover/active nodes)
+          float chromaMask0 = clamp((pinkChroma0 + blueChroma0 + goldChroma0) * 1.45, 0.0, 0.92);
+          float dKey = darkness0 * (1.0 - chromaMask0);
+
+          // Primary & Secondary drums carry both their chromatic accents AND a subtle
+          // misregistered underprint beneath the black key nodes/edges (classic 2-drum overprint)
+          float dPrimary   = clamp(pinkChromaP * 1.65 + goldChroma0 * 0.85 + darknessP * (1.0 - chromaMask0) * risoUnderprint, 0.0, 1.0);
+          float dSecondary = clamp(blueChromaS * 1.65 + darknessS * (1.0 - chromaMask0) * risoUnderprint * 0.82, 0.0, 1.0);
+
+          // Ink squash / capillary rim at sharp tonal boundaries
+          float edgeGrad = abs(darkness0 - darknessP) + abs(darkness0 - darknessS);
+          float squash = edgeGrad * risoEdgeSquash * (0.65 + 0.7 * stencilTex);
+          dKey = clamp(dKey + squash * 0.45, 0.0, 1.0);
+
+          // Apply rotated halftone dot screen + stochastic FM stencil threshold per drum
+          if (risoHalftoneOn > 0.5 && risoHalftoneStrength > 0.001) {
+            dKey       = risoScreen(dKey,       cssCoord, risoAngles.x, risoDotScale,        risoStochastic, risoHalftoneStrength, stencilTex);
+            dPrimary   = risoScreen(dPrimary,   cssCoord, risoAngles.y, risoDotScale * 1.04, risoStochastic, risoHalftoneStrength * 0.92, stencilTex);
+            dSecondary = risoScreen(dSecondary, cssCoord, risoAngles.z, risoDotScale * 1.04, risoStochastic, risoHalftoneStrength * 0.92, 1.0 - stencilTex);
+          }
+
+          // Banana-paper stencil fiber micro-voids & soy ink max density cap
+          float fiberBreak = 1.0 - risoStencilVoids * (0.45 * (1.0 - voidSpeckle) + 0.35 * smoothstep(0.62, 0.95, voidSpeckle));
+          float inkGain = risoMaxDensity * clamp(fiberBreak, 0.35, 1.0);
+          dKey       *= inkGain;
+          dPrimary   *= inkGain;
+          dSecondary *= inkGain;
+
+          // Roller feed micro-striations along vertical drum travel
+          float roller = 1.0;
+          if (risoRollerLines > 0.001) {
+            float rWave = sin(cssCoord.x * 0.37 + nCoarse.y * 2.5) * 0.5 + 0.5;
+            float rFine = sin(cssCoord.x * 2.9) * 0.5 + 0.5;
+            roller = 1.0 - risoRollerLines * (0.14 * rWave * rFine);
+          }
+
+          // Uncoated paper stock tooth + physical soy-ink overprint
+          if (isDark < 0.5) {
+            // Subtractive multiply ink transfer on warm uncoated Munken / cream stock
+            vec3 paper = col + vec3(paperFiber * 0.028 * risoFiber, paperFiber * 0.024 * risoFiber, paperFiber * 0.016 * risoFiber);
+            // Reconstruct clean paper base where scene had dark ink, preserving chromatic gold/SER glow
+            vec3 basePaper = mix(vec3(0.985, 0.976, 0.953), col, clamp(goldChroma0 * 2.0, 0.0, 1.0));
+            basePaper += vec3(paperFiber * 0.032 * risoFiber, paperFiber * 0.027 * risoFiber, paperFiber * 0.018 * risoFiber);
+
+            // Multiply each translucent soy-ink drum layer onto the paper stock
+            vec3 printed = basePaper;
+            printed *= mix(vec3(1.0), risoSecondaryInk, clamp(dSecondary * roller, 0.0, 1.0));
+            printed *= mix(vec3(1.0), risoPrimaryInk,   clamp(dPrimary   * roller, 0.0, 1.0));
+            printed *= mix(vec3(1.0), risoKeyInk,       clamp(dKey       * roller, 0.0, 1.0));
+
+            // Blend with continuous optical pass so subtle SER / gold states stay vivid
+            col = mix(paper, printed, clamp(dKey + dPrimary + dSecondary + risoFiber * 0.5, 0.0, 1.0));
+          } else {
+            // Screen / opaque fluorescent & chalk drums on heavy black cardstock
+            vec3 darkStock = vec3(0.067, 0.067, 0.075) + vec3(paperFiber * 0.022 * risoFiber);
+            vec3 printed = darkStock;
+            printed = 1.0 - (1.0 - printed) * (1.0 - risoSecondaryInk * clamp(dSecondary * roller, 0.0, 1.0));
+            printed = 1.0 - (1.0 - printed) * (1.0 - risoPrimaryInk   * clamp(dPrimary   * roller, 0.0, 1.0));
+            printed = 1.0 - (1.0 - printed) * (1.0 - risoKeyInk       * clamp(dKey       * roller, 0.0, 1.0));
+            col = mix(col + vec3(paperFiber * 0.018 * risoFiber), printed, clamp(dKey + dPrimary + dSecondary + 0.35, 0.0, 1.0));
+          }
+
+          // Gentle zine press S-curve contrast
+          if (risoPressContrast > 0.001) {
+            vec3 sCurve = col * col * (3.0 - 2.0 * col);
+            col = mix(col, sCurve, risoPressContrast * 0.45);
+          }
+          col = clamp(col, 0.0, 1.0);
+        }
+
         gl_FragColor = vec4(col, 1.0);
       }
     `, {
@@ -910,6 +1066,27 @@ function Graph({
       grainSize:  { value: CFG_DOF.grainSize ?? 1.45 },
       grainChroma:{ value: CFG_DOF.grainChroma ?? 0.22 },
       grainFps:   { value: CFG_DOF.grainFps ?? 24 },
+      // Risograph uniforms populated from window.RISO_CONFIG
+      risoEnabled:          { value: (RISO.enabled ?? true) ? 1.0 : 0.0 },
+      risoKeyInk:           { value: new THREE.Color(dark ? (RISO_INKS.darkKey || "#EFECE4") : (RISO_INKS.key || "#18181A")) },
+      risoPrimaryInk:       { value: new THREE.Color(dark ? (RISO_INKS.darkPrimary || "#FF48B0") : (RISO_INKS.primary || "#F53A61")) },
+      risoSecondaryInk:     { value: new THREE.Color(dark ? (RISO_INKS.darkSecondary || "#3898EC") : (RISO_INKS.secondary || "#0078BF")) },
+      risoPrimaryOffset:    { value: new THREE.Vector2(...(RISO_REG.primaryOffset || [2.1, -1.3])) },
+      risoSecondaryOffset:  { value: new THREE.Vector2(...(RISO_REG.secondaryOffset || [-1.9, 1.4])) },
+      risoWobbleAmt:        { value: RISO_REG.wobbleAmount ?? 0.35 },
+      risoWobbleSpeed:      { value: RISO_REG.wobbleSpeed ?? 0.65 },
+      risoHalftoneOn:       { value: (RISO_HALF.enabled ?? true) ? 1.0 : 0.0 },
+      risoDotScale:         { value: RISO_HALF.dotScale ?? 3.4 },
+      risoStochastic:       { value: RISO_HALF.stochastic ?? 0.44 },
+      risoHalftoneStrength: { value: RISO_HALF.strength ?? 0.72 },
+      risoAngles:           { value: new THREE.Vector3(RISO_HALF.angles?.key ?? 45.0, RISO_HALF.angles?.primary ?? 15.0, RISO_HALF.angles?.secondary ?? 75.0) },
+      risoMaxDensity:       { value: RISO_INK.maxDensity ?? 0.91 },
+      risoStencilVoids:     { value: RISO_INK.stencilVoids ?? 0.34 },
+      risoEdgeSquash:       { value: RISO_INK.edgeSquash ?? 0.32 },
+      risoUnderprint:       { value: RISO_INK.underprint ?? 0.38 },
+      risoFiber:            { value: RISO_PAPER.fiberIntensity ?? 0.28 },
+      risoRollerLines:      { value: RISO_PAPER.rollerLines ?? 0.08 },
+      risoPressContrast:    { value: RISO_PAPER.pressContrast ?? 0.25 },
     });
 
     const passScene = new THREE.Scene();
@@ -956,8 +1133,38 @@ function Graph({
       nearDilateMat.uniforms.dir.value.set(0, nearTexel.y);
       runPass(nearDilateMat, nearA);
 
-      // 4. Final circular bokeh gather + 50mm optics + ISO 800 film grain
-      compositeMat.uniforms.uTime.value = (now || performance.now()) * 0.001;
+      // 4. Final circular bokeh gather + 50mm optics + ISO 800 film grain + Riso press
+      const rc = window.RISO_CONFIG || {};
+      const rInks = rc.inks || {};
+      const rReg  = rc.registration || {};
+      const rHalf = rc.halftone || {};
+      const rInk  = rc.ink || {};
+      const rPap  = rc.paper || {};
+      const u = compositeMat.uniforms;
+      u.uTime.value = (now || performance.now()) * 0.001;
+      u.risoEnabled.value = (rc.enabled ?? true) ? 1.0 : 0.0;
+      const isDk = u.isDark.value > 0.5;
+      u.risoKeyInk.value.set(isDk ? (rInks.darkKey || "#EFECE4") : (rInks.key || "#18181A"));
+      u.risoPrimaryInk.value.set(isDk ? (rInks.darkPrimary || "#FF48B0") : (rInks.primary || "#F53A61"));
+      u.risoSecondaryInk.value.set(isDk ? (rInks.darkSecondary || "#3898EC") : (rInks.secondary || "#0078BF"));
+      if (rReg.primaryOffset)   u.risoPrimaryOffset.value.set(rReg.primaryOffset[0], rReg.primaryOffset[1]);
+      if (rReg.secondaryOffset) u.risoSecondaryOffset.value.set(rReg.secondaryOffset[0], rReg.secondaryOffset[1]);
+      u.risoWobbleAmt.value        = rReg.wobbleAmount ?? 0.35;
+      u.risoWobbleSpeed.value      = rReg.wobbleSpeed ?? 0.65;
+      u.risoHalftoneOn.value       = (rHalf.enabled ?? true) ? 1.0 : 0.0;
+      u.risoDotScale.value         = rHalf.dotScale ?? 3.4;
+      u.risoStochastic.value       = rHalf.stochastic ?? 0.44;
+      u.risoHalftoneStrength.value = rHalf.strength ?? 0.72;
+      if (rHalf.angles) {
+        u.risoAngles.value.set(rHalf.angles.key ?? 45.0, rHalf.angles.primary ?? 15.0, rHalf.angles.secondary ?? 75.0);
+      }
+      u.risoMaxDensity.value    = rInk.maxDensity ?? 0.91;
+      u.risoStencilVoids.value  = rInk.stencilVoids ?? 0.34;
+      u.risoEdgeSquash.value    = rInk.edgeSquash ?? 0.32;
+      u.risoUnderprint.value    = rInk.underprint ?? 0.38;
+      u.risoFiber.value         = rPap.fiberIntensity ?? 0.28;
+      u.risoRollerLines.value   = rPap.rollerLines ?? 0.08;
+      u.risoPressContrast.value = rPap.pressContrast ?? 0.25;
       runPass(compositeMat, null);
     };
 
@@ -1001,11 +1208,15 @@ function Graph({
         el = el.parentElement;
       }
       try { bgColor.setStyle(css); }
-      catch { bgColor.setHex(document.body.dataset.mode === "dark" ? 0x0a0a0a : 0xfaf9f5); }
+      catch { bgColor.setHex(document.body.dataset.mode === "dark" ? 0x111113 : 0xfbf9f3); }
       scene.background = bgColor;
       scene.fog.color.copy(bgColor);
       const bgLuma = bgColor.r * 0.299 + bgColor.g * 0.587 + bgColor.b * 0.114;
-      compositeMat.uniforms.isDark.value = bgLuma < 0.5 ? 1.0 : 0.0;
+      const isDk = bgLuma < 0.5;
+      compositeMat.uniforms.isDark.value = isDk ? 1.0 : 0.0;
+      compositeMat.uniforms.risoKeyInk.value.set(isDk ? (RISO_INKS.darkKey || "#EFECE4") : (RISO_INKS.key || "#18181A"));
+      compositeMat.uniforms.risoPrimaryInk.value.set(isDk ? (RISO_INKS.darkPrimary || "#FF48B0") : (RISO_INKS.primary || "#F53A61"));
+      compositeMat.uniforms.risoSecondaryInk.value.set(isDk ? (RISO_INKS.darkSecondary || "#3898EC") : (RISO_INKS.secondary || "#0078BF"));
     };
     syncBackground();
     const modeObs = new MutationObserver(syncBackground);
@@ -1762,17 +1973,7 @@ function Graph({
     >
       <div 
         ref={tooltipRef} 
-        style={{
-          position: 'absolute', 
-          display: 'none', 
-          fontFamily: "var(--font-text)",
-          fontWeight: 500,
-          fontSize: '16px',
-          pointerEvents: 'none',
-          whiteSpace: 'nowrap',
-          transform: 'translateY(-50%)',
-          zIndex: 10
-        }}
+        className="kf-tooltip"
       ></div>
     </div>
   );
