@@ -1,0 +1,197 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-paper: #FBF9F3;
+  --color-paper-cream: #F4EFE4;
+  --color-ink: #18181A;
+  --color-ink-muted: #76736B;
+  --color-hairline: rgba(24, 24, 26, 0.22);
+  --color-card: #FBF9F3;
+  --color-riso-magenta: #F53A61;
+  --color-riso-cyan: #0078BF;
+  --color-riso-yellow: #FFB511;
+  --color-riso-green: #407060;
+}
+
+body[data-mode="dark"] {
+  --color-paper: #111113;
+  --color-paper-cream: #18181C;
+  --color-ink: #EFECE4;
+  --color-ink-muted: #9E9A90;
+  --color-hairline: rgba(239, 236, 228, 0.22);
+  --color-card: #141417;
+  --color-riso-magenta: #FF48B0;
+  --color-riso-cyan: #3898EC;
+  --color-riso-yellow: #FFC436;
+  --color-riso-green: #52B788;
+}
+
+* {
+  box-sizing: border-box;
+  border-radius: 0px;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-size: 16px;
+}
+
+section[id] {
+  scroll-margin-top: 20vh;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: "Asta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color 220ms ease, color 220ms ease;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--color-riso-magenta);
+  color: var(--color-paper);
+}
+
+/* ── Feathered Optical Depth-of-Field Blur Bands + Clean Paper Fog at Top & Bottom ──
+   Middle ~65% of viewport is 100% sharp; top and bottom smoothly blur and fade into
+   clean warm paper (#FBF9F3) with zero dirty noise or dark vignette. */
+.kf-dof-band {
+  position: fixed;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 44;
+}
+
+.kf-dof-top-feather {
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.75) 55%, rgba(0,0,0,0) 100%);
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.75) 55%, rgba(0,0,0,0) 100%);
+}
+
+.kf-dof-bot-feather {
+  mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.75) 55%, rgba(0,0,0,0) 100%);
+  -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.75) 55%, rgba(0,0,0,0) 100%);
+}
+
+/* Clean Paper Fog Fade at Top (below nav) */
+.kf-dof-fog-top {
+  position: fixed;
+  top: 48px;
+  left: 0;
+  right: 0;
+  height: 17vh;
+  max-height: 155px;
+  pointer-events: none;
+  z-index: 45;
+  background: linear-gradient(
+    to bottom,
+    rgba(251, 249, 243, 0.94) 0%,
+    rgba(251, 249, 243, 0.65) 32%,
+    rgba(251, 249, 243, 0.24) 66%,
+    rgba(251, 249, 243, 0) 100%
+  );
+}
+
+/* Clean Paper Fog Fade at Bottom */
+.kf-dof-fog-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 19vh;
+  max-height: 175px;
+  pointer-events: none;
+  z-index: 45;
+  background: linear-gradient(
+    to top,
+    rgba(251, 249, 243, 0.96) 0%,
+    rgba(251, 249, 243, 0.68) 34%,
+    rgba(251, 249, 243, 0.26) 68%,
+    rgba(251, 249, 243, 0) 100%
+  );
+}
+
+body[data-mode="dark"] .kf-dof-fog-top {
+  background: linear-gradient(
+    to bottom,
+    rgba(17, 17, 19, 0.95) 0%,
+    rgba(17, 17, 19, 0.68) 32%,
+    rgba(17, 17, 19, 0.25) 66%,
+    rgba(17, 17, 19, 0) 100%
+  );
+}
+
+body[data-mode="dark"] .kf-dof-fog-bottom {
+  background: linear-gradient(
+    to top,
+    rgba(17, 17, 19, 0.96) 0%,
+    rgba(17, 17, 19, 0.7) 34%,
+    rgba(17, 17, 19, 0.26) 68%,
+    rgba(17, 17, 19, 0) 100%
+  );
+}
+
+/* ── Deckled / hand-cut paper slips (using main site's #kf-paper-edge filter) ── */
+.kf-paper-slip {
+  position: relative;
+  isolation: isolate;
+}
+.kf-paper-slip::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--color-paper-cream);
+  filter: url(#kf-paper-edge) drop-shadow(1.5px 1.5px 0 rgba(24, 24, 26, 0.18));
+}
+body[data-mode="dark"] .kf-paper-slip::before {
+  background: #1C1C21;
+  filter: url(#kf-paper-edge) drop-shadow(1.5px 1.5px 0 rgba(239, 236, 228, 0.18));
+}
+
+/* ── Risograph Zine Card with Multi-Drum Misregistration Shadow ── */
+.riso-card {
+  position: relative;
+  background-color: var(--color-card);
+  border: 1.5px solid var(--color-ink);
+  box-shadow:
+    3.5px 3.5px 0px rgba(245, 58, 97, 0.3),
+    -2.5px -2.5px 0px rgba(0, 120, 191, 0.24);
+}
+
+/* Misregistered display headlines (subtle cyan/magenta soy ink ghosting) */
+.riso-misreg-title,
+main h1,
+main h2,
+main h3,
+main h4 {
+  text-shadow:
+    1.5px -1px 0px rgba(245, 58, 97, 0.22),
+    -1.4px 1px 0px rgba(0, 120, 191, 0.18);
+}
+
+/* Page kicker matching main website .kf-page-kicker */
+.kf-kicker {
+  font-family: "Asta Sans", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-ink-muted);
+}
+
+/* Subtle Parallax Dot Grid matching pages.jsx ParallaxBg (opacity 0.14) */
+.riso-halftone-bg {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(245, 58, 97, 0.12) 0.6px, transparent 1px),
+    radial-gradient(circle at 2.5px 2.5px, rgba(0, 73, 146, 0.1) 0.6px, transparent 1px);
+  background-size: 9px 9px, 9px 9px;
+  background-position: 0 0, 1.5px 1.5px;
+}

@@ -9,9 +9,9 @@ On the 28th of February 2026, Iranians woke up to a new normal after decades of 
 
 Seeing it this way, I found myself frustrated by those who thought this reaction was intellectually lazy, uneducated, and that people were coerced into wanting it by imperial powers. While, of course, I don't rule out the option, I think it undermines people's agency and their sense of urgency and frustration. So I decided to vibecode a game where you can make the same decisions average Iranians made and experience the consequences that followed. 
 
-## The crown jewel of cooperative game theory
+## [The crown jewel of cooperative game theory](https://kuffmode.github.io/shapley/)
 
-Still cooking.
+What does it actually mean for a division of credit—or a dinner bill—to be *fair*? Before diving into equations, this interactive story puts you at a dinner table with two friends and a smudged \$60 receipt. Once you haggle your way to the only split nobody can veto, it unpacks why Lloyd Shapley's 1953 solution is the unique mathematical answer to fair attribution, and how we scaled it into Multi-perturbation Shapley value Analysis (MSA) to figure out which brain regions and neural units are causally doing what.
 
 ## The resistance
 
